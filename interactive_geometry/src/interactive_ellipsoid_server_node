@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Copyright 2019 Matthew Powelson
@@ -17,15 +17,18 @@ limitations under the License.
 """
 
 # Import ROS modules
-import rospy
+import rclpy
+from rclpy.node import Node
+from rclpy import time, timer
+from rclpy.executors import MultiThreadedExecutor
 from visualization_msgs.msg import Marker
 from geometry_msgs.msg import Point
 from interactive_markers.interactive_marker_server import *
 from interactive_markers.menu_handler import *
 from visualization_msgs.msg import InteractiveMarkerControl
-from tf.broadcaster import TransformBroadcaster
-from tf.listener import TransformListener
-import tf
+from tf2_ros import TransformBroadcaster, TransformListener, TransformStamped, Buffer, BufferClient
+import tf2_py as tf2
+from tf_transformations import quaternion_matrix
 
 # Import pure Python modules
 import numpy as np
@@ -38,40 +41,44 @@ from interactive_geometry.interactive_marker_utils import  InteractiveMarkerUtil
 import interactive_geometry.global_vars as global_vars
 
 # Action interface
-import actionlib
+from rclpy.action import ActionServer
 import interactive_geometry_msgs.msg
+import interactive_geometry_msgs.action
 
 menu_handler = MenuHandler()
 
 
-class EllipsoidAction(object):
+class EllipsoidAction(Node):
     # create messages that are used to publish feedback/result
-    _feedback = interactive_geometry_msgs.msg.InteractiveEllipsoidFeedback()
-    _result = interactive_geometry_msgs.msg.InteractiveEllipsoidResult()
+    _feedback = interactive_geometry_msgs.action.InteractiveEllipsoid.Feedback
+    _result = interactive_geometry_msgs.action.InteractiveEllipsoid.Result
 
-    def __init__(self, name):
+    def __init__(self, node_name):
         # Mesh publisher
-        self._pub_marker = rospy.Publisher('mesh_marker', Marker, queue_size=10)
+        super().__init__(node_name)
+        self._pub_marker = self.create_publisher(Marker, 'mesh_marker', 10)
 
         # Set Marker server and TF
-        self._server = InteractiveMarkerServer("basic_controls")
-        self._broadcaster = TransformBroadcaster()
-        self._listener = TransformListener()
+        self._server = InteractiveMarkerServer("basic_controls", "")
+        self._broadcaster = TransformBroadcaster(self)
+        self.tf_buffer = Buffer()
+        self._listener = TransformListener(self.tf_buffer, self)
 
         # Utilities class for manipulating interactive marker
         self._util = InteractiveMarkerUtils(self._server, self._broadcaster, self._pub_marker)
 
         # Setup action server
-        self._action_name = name
-        self._as = actionlib.SimpleActionServer(self._action_name, interactive_geometry_msgs.msg.InteractiveEllipsoidAction, execute_cb=self.execute_cb, auto_start = False)
-        self._as.start()
+        self._action_name = node_name + "_action"
+        self._as = ActionServer(node= node_name, action_type= interactive_geometry_msgs.action.InteractiveEllipsoid,
+                                action_name=self._action_name, execute_callback= self.execute_cb)
+        # self._as.start()
 
     def execute_cb(self, goal):
 
         # Read ROS parameters
-        global_vars.a_scale = rospy.get_param('~a', 1.0)
-        global_vars.b_scale = rospy.get_param('~b', 1.0)
-        global_vars.c_scale = rospy.get_param('~c', 1.0)
+        global_vars.a_scale = self.get_parameter_or('~a', rclpy.parameter.Parameter('', rclpy.parameter.Parameter.Type.DOUBLE, 1.0))
+        global_vars.b_scale = self.get_parameter_or('~b', rclpy.parameter.Parameter('', rclpy.parameter.Parameter.Type.DOUBLE, 1.0))
+        global_vars.c_scale = self.get_parameter_or('~c', rclpy.parameter.Parameter('', rclpy.parameter.Parameter.Type.DOUBLE, 1.0))
 
         # Read goal from action
         filename = goal.results_directory + '/output.stl'
@@ -85,22 +92,40 @@ class EllipsoidAction(object):
         exporter = MeshExporter()
 
         # Make central control to move mesh
-        position = Point(0, 0, 0)
+        position = Point()
+        position.x = 0
+        position.y = 0
+        position.z = 0
         self._util.make6DofMarker(False, InteractiveMarkerControl.MOVE_3D, position, True)
         self._server.applyChanges()
 
         # Make controls to resize mesh (positive direction)
-        position = Point(global_vars.a_scale, 0,  0)
+        position = Point()
+        position.x = global_vars.a_scale
+        position.y = 0
+        position.z = 0
         self._util.makeMovingMarker( position, "a", axis=0)
-        position = Point(0, global_vars.b_scale,  0)
+        position = Point()
+        position.x = 0
+        position.y = global_vars.b_scale
+        position.z = 0
         self._util.makeMovingMarker( position, "b", axis=1)
-        position = Point(0, 0, global_vars.c_scale)
+        position = Point()
+        position.x = 0
+        position.y = 0
+        position.z = global_vars.c_scale
         self._util.makeMovingMarker( position, "c", axis=2)
 
         # Make controls to resize mesh (negative directon)
-        position = Point(-1*global_vars.a_scale, 0,  0)
+        position = Point()
+        position.x = -1 * global_vars.a_scale
+        position.y = 0
+        position.z = 0
         self._util.makeMovingMarker( position, "a_neg", axis=0)
-        position = Point(0, 0, -1*global_vars.c_scale)
+        position = Point()
+        position.x = 0
+        position.y = 0
+        position.z = -1 * global_vars.c_scale
         self._util.makeMovingMarker( position, "c_neg", axis=2)
 
         # 'commit' changes and send to all clients
@@ -113,8 +138,15 @@ class EllipsoidAction(object):
         # Setup for loop
         trans = (0, 0, 0)
         rot = (0, 0, 0, 1.0)
-        self._broadcaster.sendTransform( trans, rot, rospy.Time.now(), parent_link, mesh_link )
-        rate = rospy.Rate(30) # 30hz
+        tf_stamped_msg = TransformStamped()
+        tf_stamped_msg.header.stamp = self.get_clock().now().to_msg()
+        tf_stamped_msg.header.frame_id = parent_link
+        tf_stamped_msg.child_frame_id = mesh_link
+        tf_stamped_msg.transform.translation = trans
+        tf_stamped_msg.transform.rotation = rot
+
+        self._broadcaster.sendTransform(tf_stamped_msg)
+        rate = self.create_rate(30) # 30hz
         seq = 0
         finished = False
         while not finished:
@@ -124,23 +156,42 @@ class EllipsoidAction(object):
 
             # Rebroadcast the tf
             try:
-                (trans,rot) = self._listener.lookupTransform(parent_link, mesh_link, rospy.Time(0))
-                self._broadcaster.sendTransform( trans, rot, rospy.Time.now(), mesh_link, parent_link,)
-            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-                self._broadcaster.sendTransform( (0, 0, 0), (0, 0, 0, 1.0), rospy.Time.now(),  mesh_link, parent_link )
+                tf_stamped_lookup_msg = TransformStamped()
+                tf_stamped_lookup_msg = self.tf_buffer.lookupTransform(parent_link, mesh_link, rclpy.time.Time())
+                trans = tf_stamped_lookup_msg.transform.translation
+                rot = tf_stamped_lookup_msg.transform.rotation
+                tf_stamped_msg = TransformStamped()
+                tf_stamped_msg.header.stamp = self.get_clock().now().to_msg()
+                tf_stamped_msg.header.frame_id = mesh_link
+                tf_stamped_msg.child_frame_id = parent_link
+                tf_stamped_msg.transform.translation = tf_stamped_lookup_msg.transform.translation
+                tf_stamped_msg.transform.rotation = tf_stamped_lookup_msg.transform.rotation
+                self._broadcaster.sendTransform(tf_stamped_msg)
+            except (tf2.LookupException, tf2.ConnectivityException, tf2.ExtrapolationException):
+                trans = (0, 0, 0)
+                rot = (0, 0, 0, 1.0)
+                tf_stamped_msg = TransformStamped()
+                tf_stamped_msg.header.stamp = self.get_clock().now().to_msg()
+                tf_stamped_msg.header.frame_id = mesh_link
+                tf_stamped_msg.child_frame_id = parent_link
+                tf_stamped_msg.transform.translation = trans
+                tf_stamped_msg.transform.rotation = rot
+                self._broadcaster.sendTransform(tf_stamped_msg)
                 print("Resetting TF")
                 continue
 
             # Add/Update mesh
             marker = Marker()
-            marker = to_triangle_marker_msg(gen.vertices, gen.faces, mesh_link, seq, rospy.Time.now())
-            marker.header.stamp = rospy.Time.now()
+            marker = to_triangle_marker_msg(gen.vertices, gen.faces, mesh_link, seq, rclpy.time.Time())
+            marker.header.stamp = rclpy.time.Time()
 
             # Save mesh if button clicked
-            if self._util.save_file == True:
+            if self._util.save_file:
                 # Generate the transform matrix
-                transform_converter = tf.TransformerROS()
-                transformation_matrix = transform_converter.fromTranslationRotation(trans, rot)
+                transformation_matrix = quaternion_matrix(rot)
+                transformation_matrix[3, 0] = trans.x
+                transformation_matrix[3, 1] = trans.y
+                transformation_matrix[3, 2] = trans.z
 
                 # Add a column of ones to the vertices - this makes the
                 # dimensions match, and ensures the translation applies.
@@ -161,7 +212,7 @@ class EllipsoidAction(object):
                 print("Exported mesh as " + filename)
                 self._result.results_path = filename
                 self._result.success = True
-                self._as.set_succeeded(self._result)
+                # self._as.set_succeeded(self._result)
                 finished = True
 
             # Publish the mesh
@@ -172,12 +223,12 @@ class EllipsoidAction(object):
         self._server.applyChanges()
 
 
-
-
-
 if __name__ == '__main__':
     # Initialize node, publishers, and interactive marker server
-    rospy.init_node('interactive_ellipsoid_node')
-    server = EllipsoidAction(rospy.get_name())
-    rospy.spin()
+    ellipsoid_node = rclpy.create_node('interactive_ellipsoid_node')
+    executor = MultiThreadedExecutor()
+    server = EllipsoidAction(ellipsoid_node.get_name())
+    rclpy.spin(node=ellipsoid_node, executor=executor)
 
+    ellipsoid_node.destroy_node()
+    rclpy.shutdown()

@@ -1,66 +1,34 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.5)
 project(interactive_geometry_examples)
 
-## Compile as C++11, supported in ROS Kinetic and newer
-add_compile_options(-std=c++11)
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 17)
+endif()
 
-## Find catkin macros, libraries, and packages
-find_package(catkin REQUIRED COMPONENTS
-  actionlib
-  interactive_geometry_msgs
-  roscpp
-  roslib
-)
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
 
-###################################
-## catkin specific configuration ##
-###################################
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(rclcpp_action REQUIRED)
+find_package(interactive_geometry_msgs REQUIRED)
 
-# The catkin_package macro generates cmake config files for the package
-catkin_package(
-  INCLUDE_DIRS
-  LIBRARIES
-  CATKIN_DEPENDS
-    actionlib
-    interactive_geometry_msgs
-    roscpp
-  DEPENDS
-)
 
-###########
-## Build ##
-###########
-
-include_directories(
-  ${catkin_INCLUDE_DIRS}
-)
-
-## Declare a C++ executable
 add_executable(interactive_ellipsoid_client_node
   src/interactive_ellipsoid_client_node.cpp
 )
-add_dependencies(interactive_ellipsoid_client_node
-  ${${PROJECT_NAME}_EXPORTED_TARGETS}
-  ${catkin_EXPORTED_TARGETS}
-)
-target_link_libraries(interactive_ellipsoid_client_node
-  ${catkin_LIBRARIES}
+ament_target_dependencies(interactive_ellipsoid_client_node
+  rclcpp
+  rclcpp_action
+  interactive_geometry_msgs
 )
 
-#############
-## Install ##
-#############
+# Install the executable(s)
+install(TARGETS interactive_ellipsoid_client_node DESTINATION lib/${PROJECT_NAME})
+install(DIRECTORY launch DESTINATION share/${PROJECT_NAME}/)
 
-# Mark executable for installation
-install(TARGETS
-    interactive_ellipsoid_client_node
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
+#ament_export_dependencies(rclcpp)
+#ament_export_targets(interactive_ellipsoid_client_node HAS_LIBRARY_TARGET)
+ament_package()
 
-# Mark launch files for installation
-install(DIRECTORY launch/
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch
-  PATTERN ".svn" EXCLUDE
-)

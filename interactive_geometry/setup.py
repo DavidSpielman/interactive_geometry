@@ -1,12 +1,23 @@
-## ! DO NOT MANUALLY INVOKE THIS setup.py, USE CATKIN INSTEAD
+import os
+from glob import glob
+from setuptools import setup
 
-from distutils.core import setup
-from catkin_pkg.python_setup import generate_distutils_setup
+package_name = 'interactive_geometry'
 
-# fetch values from package.xml
-setup_args = generate_distutils_setup(
-    packages=['interactive_geometry'],
-    package_dir={'': 'src'},
+setup(
+    name=package_name,
+    version='0.0.0',
+    packages=[package_name],
+    data_files=[
+        ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
+        (os.path.join('share', package_name), ['package.xml']),
+        (os.path.join('share', package_name, 'launch'), glob('launch/*')),
+    ],
+    install_requires=['setuptools'],
+    zip_safe=True,
+    scripts=[
+        'scripts/ellipsoid_generator',
+        'src/interactive_ellipsoid_server_node'
+    ],
+    package_dir={"":"src"},
 )
-
-setup(**setup_args)
