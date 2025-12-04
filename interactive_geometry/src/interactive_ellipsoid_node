@@ -91,7 +91,7 @@ if __name__ == '__main__':
     listener = TransformListener(tf_buffer, node)
 
     # Set up generation utilities
-    util = InteractiveMarkerUtils(server, broadcaster, pub_marker)
+    util = InteractiveMarkerUtils(node, server, broadcaster, pub_marker)
     util.parent_link = parent_link
     util.mesh_link = mesh_link
     exporter = MeshExporter()
@@ -169,13 +169,13 @@ if __name__ == '__main__':
 
         # Rebroadcast the tf
         try:
-            tf_stamped_lookup_msg = tf_buffer.lookupTransform(parent_link, mesh_link, node.get_clock().now())
+            tf_stamped_lookup_msg = tf_buffer.lookup_transform(parent_link.value, mesh_link.value, node.get_clock().now())
             trans = tf_stamped_lookup_msg.transform.translation
             rot = tf_stamped_lookup_msg.transform.rotation
             tf_stamped_msg = TransformStamped()
             tf_stamped_msg.header.stamp = node.get_clock().now().to_msg()
-            tf_stamped_msg.header.frame_id = mesh_link
-            tf_stamped_msg.child_frame_id = parent_link
+            tf_stamped_msg.header.frame_id = mesh_link.value
+            tf_stamped_msg.child_frame_id = parent_link.value
             tf_stamped_msg.transform.translation = tf_stamped_lookup_msg.transform.translation
             tf_stamped_msg.transform.rotation = tf_stamped_lookup_msg.transform.rotation
             broadcaster.sendTransform(tf_stamped_msg)
@@ -192,8 +192,8 @@ if __name__ == '__main__':
             rot.w = 1.0
             tf_stamped_msg = TransformStamped()
             tf_stamped_msg.header.stamp = node.get_clock().now().to_msg()
-            tf_stamped_msg.header.frame_id = mesh_link
-            tf_stamped_msg.child_frame_id = parent_link
+            tf_stamped_msg.header.frame_id = mesh_link.value
+            tf_stamped_msg.child_frame_id = parent_link.value
             tf_stamped_msg.transform.translation = trans
             tf_stamped_msg.transform.rotation = rot
             broadcaster.sendTransform(tf_stamped_msg)
@@ -202,7 +202,7 @@ if __name__ == '__main__':
 
         # Add/Update mesh
         marker = Marker()
-        marker = to_triangle_marker_msg(gen.vertices, gen.faces, mesh_link, seq, node.get_clock().now())
+        marker = to_triangle_marker_msg(gen.vertices, gen.faces, mesh_link.value, seq, node.get_clock().now())
         marker.header.stamp = node.get_clock().now()
 
         # Save mesh if button clicked

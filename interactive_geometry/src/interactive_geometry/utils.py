@@ -1,6 +1,6 @@
 """ Contains utility functions for converting python types to ROS types.
 
-In the future this could be expanded to containt other utilities. That is just how it worked out right now.
+In the future this could be expanded to contain other utilities. That is just how it worked out right now.
 """
 
 from shape_msgs.msg import Mesh
