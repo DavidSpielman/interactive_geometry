@@ -17,7 +17,8 @@ setup(
     zip_safe=True,
     scripts=[
         'scripts/ellipsoid_generator',
-        'src/interactive_ellipsoid_server_node'
+        'src/interactive_ellipsoid_server_node',
+        'src/interactive_ellipsoid_node'
     ],
     package_dir={"":"src"},
 )

@@ -20,6 +20,7 @@ limitations under the License.
 import rclpy
 from rclpy.node import Node
 from rclpy import time, timer
+from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 from visualization_msgs.msg import Marker
 from geometry_msgs.msg import Point
@@ -59,7 +60,7 @@ class EllipsoidAction(Node):
         self._pub_marker = self.create_publisher(Marker, 'mesh_marker', 10)
 
         # Set Marker server and TF
-        self._server = InteractiveMarkerServer("basic_controls", "")
+        self._server = InteractiveMarkerServer(self, "basic_controls")
         self._broadcaster = TransformBroadcaster(self)
         self.tf_buffer = Buffer()
         self._listener = TransformListener(self.tf_buffer, self)
@@ -69,8 +70,8 @@ class EllipsoidAction(Node):
 
         # Setup action server
         self._action_name = node_name + "_action"
-        self._as = ActionServer(node= node_name, action_type= interactive_geometry_msgs.action.InteractiveEllipsoid,
-                                action_name=self._action_name, execute_callback= self.execute_cb)
+        self._as = ActionServer(node= self, action_type= interactive_geometry_msgs.action.InteractiveEllipsoid,
+                                action_name=self._action_name, execute_callback= self.execute_cb, callback_group=ReentrantCallbackGroup())
         # self._as.start()
 
     def execute_cb(self, goal):
@@ -146,7 +147,6 @@ class EllipsoidAction(Node):
         tf_stamped_msg.transform.rotation = rot
 
         self._broadcaster.sendTransform(tf_stamped_msg)
-        rate = self.create_rate(30) # 30hz
         seq = 0
         finished = False
         while not finished:
@@ -224,11 +224,13 @@ class EllipsoidAction(Node):
 
 
 if __name__ == '__main__':
+    rclpy.init()
     # Initialize node, publishers, and interactive marker server
     ellipsoid_node = rclpy.create_node('interactive_ellipsoid_node')
     executor = MultiThreadedExecutor()
-    server = EllipsoidAction(ellipsoid_node.get_name())
+    server = EllipsoidAction('server_node')
     rclpy.spin(node=ellipsoid_node, executor=executor)
 
+    server.destroy_node()
     ellipsoid_node.destroy_node()
     rclpy.shutdown()

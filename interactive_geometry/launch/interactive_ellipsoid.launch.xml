@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="filename" default="output.stl"/>
+    <arg name="parent_link" default="world" />
+    <arg name="mesh_link" default="mesh_frame" />
+    <arg name="num_pts" default="20" />
+    <arg name="rviz_config" default="$(find-pkg-share interactive_geometry)/config/rviz/config.rviz"/>
+
+    <node pkg="rviz2" exec="rviz2" args="-d $(var rviz_config)"/>
+
+    <!-- Launch node with cwd being that of the node, so the files will be saved there instead of $ROS_HOME -->
+    <node name="interactive_ellipsoid_node" pkg="interactive_geometry" exec="interactive_ellipsoid_node"  output="screen">
+        <param name="a" value="2.3" />
+        <param name="b" value="1.5" />
+        <param name="c" value="3.9" />
+        <param name="filename" value="$(var filename)" />
+        <param name="num_pts" value="$(var num_pts)" />
+        <param name="parent_link" value="$(var parent_link)" />
+        <param name="mesh_link" value="$(var mesh_link)" />
+    </node>
+
+</launch>
+

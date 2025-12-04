@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 <launch>
     <arg name="rviz_config" default="$(find-pkg-share interactive_geometry)/config/rviz/config.rviz"/>
+
     <node pkg="rviz2" exec="rviz2" args="-d $(var rviz_config)"/>
 
     <!-- Launch node with cwd being that of the node, so the files will be saved there instead of $ROS_HOME -->

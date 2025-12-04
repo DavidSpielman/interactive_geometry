@@ -33,13 +33,13 @@ TODO: Replace all of this with my own code that works a little better for this p
 
 
 # Import ROS modules
-import rospy
+import rclpy
 from interactive_markers.interactive_marker_server import *
 from interactive_markers.menu_handler import *
 from visualization_msgs.msg import *
 from geometry_msgs.msg import Point
 from geometry_msgs.msg import Pose
-from tf.broadcaster import TransformBroadcaster
+from tf2_ros import TransformBroadcaster
 
 # Import pure Python modules
 from random import random
@@ -77,7 +77,7 @@ class InteractiveMarkerUtils:
 
     # Gets called whenever the user interacts with a marker
     def processFeedback(self, feedback ):
-        """Gets called whenever the user interacts with a marker. Also updaes the global_vars to scale geometry
+        """Gets called whenever the user interacts with a marker. Also updates the global_vars to scale geometry
 
         Mouse info is not used
         """
@@ -187,9 +187,9 @@ class InteractiveMarkerUtils:
         Makes a marker with a 6 DOF control that is both draggable and has the arrows and rotation ribbon if show_6dof=true
         """
         int_marker = InteractiveMarker()
-        int_marker.header.frame_id = self.parent_link
+        int_marker.header.frame_id = str(self.parent_link)
         int_marker.pose.position = position
-        int_marker.scale = 1
+        int_marker.scale = 1.0
 
         int_marker.name = "simple_6dof"
         int_marker.description = ""
@@ -212,10 +212,10 @@ class InteractiveMarkerUtils:
         # Add the arrows and rotation ribbons to make it movable that way
         if show_6dof:
             control = InteractiveMarkerControl()
-            control.orientation.w = 1
-            control.orientation.x = 1
-            control.orientation.y = 0
-            control.orientation.z = 0
+            control.orientation.w = 1.0
+            control.orientation.x = 1.0
+            control.orientation.y = 0.0
+            control.orientation.z = 0.0
             control.name = "rotate_x"
             control.interaction_mode = InteractiveMarkerControl.ROTATE_AXIS
             if fixed:
@@ -223,10 +223,10 @@ class InteractiveMarkerUtils:
             int_marker.controls.append(control)
 
             control = InteractiveMarkerControl()
-            control.orientation.w = 1
-            control.orientation.x = 1
-            control.orientation.y = 0
-            control.orientation.z = 0
+            control.orientation.w = 1.0
+            control.orientation.x = 1.0
+            control.orientation.y = 0.0
+            control.orientation.z = 0.0
             control.name = "move_x"
             control.interaction_mode = InteractiveMarkerControl.MOVE_AXIS
             if fixed:
@@ -234,10 +234,10 @@ class InteractiveMarkerUtils:
             int_marker.controls.append(control)
 
             control = InteractiveMarkerControl()
-            control.orientation.w = 1
-            control.orientation.x = 0
-            control.orientation.y = 1
-            control.orientation.z = 0
+            control.orientation.w = 1.0
+            control.orientation.x = 0.0
+            control.orientation.y = 1.0
+            control.orientation.z = 0.0
             control.name = "rotate_z"
             control.interaction_mode = InteractiveMarkerControl.ROTATE_AXIS
             if fixed:
@@ -245,10 +245,10 @@ class InteractiveMarkerUtils:
             int_marker.controls.append(control)
 
             control = InteractiveMarkerControl()
-            control.orientation.w = 1
-            control.orientation.x = 0
-            control.orientation.y = 1
-            control.orientation.z = 0
+            control.orientation.w = 1.0
+            control.orientation.x = 0.0
+            control.orientation.y = 1.0
+            control.orientation.z = 0.0
             control.name = "move_z"
             control.interaction_mode = InteractiveMarkerControl.MOVE_AXIS
             if fixed:
@@ -256,10 +256,10 @@ class InteractiveMarkerUtils:
             int_marker.controls.append(control)
 
             control = InteractiveMarkerControl()
-            control.orientation.w = 1
-            control.orientation.x = 0
-            control.orientation.y = 0
-            control.orientation.z = 1
+            control.orientation.w = 1.0
+            control.orientation.x = 0.0
+            control.orientation.y = 0.0
+            control.orientation.z = 1.0
             control.name = "rotate_y"
             control.interaction_mode = InteractiveMarkerControl.ROTATE_AXIS
             if fixed:
@@ -267,28 +267,28 @@ class InteractiveMarkerUtils:
             int_marker.controls.append(control)
 
             control = InteractiveMarkerControl()
-            control.orientation.w = 1
-            control.orientation.x = 0
-            control.orientation.y = 0
-            control.orientation.z = 1
+            control.orientation.w = 1.0
+            control.orientation.x = 0.0
+            control.orientation.y = 0.0
+            control.orientation.z = 1.0
             control.name = "move_y"
             control.interaction_mode = InteractiveMarkerControl.MOVE_AXIS
             if fixed:
                 control.orientation_mode = InteractiveMarkerControl.FIXED
             int_marker.controls.append(control)
 
-        self.server.insert(int_marker, self.processFeedback)
+        self.server.insert(marker=int_marker, feedback_callback=self.processFeedback)
         self.menu_handler.apply( self.server, int_marker.name )
 
 
-    def makeMovingMarker(self, position, name, axis, scale=1):
+    def makeMovingMarker(self, position, name, axis, scale=1.0):
         """
         Makes a marker at a point and adds a linear control in one axis
 
         Used to stretch the ellipsoid, etc.
         """
         int_marker = InteractiveMarker()
-        int_marker.header.frame_id = self.mesh_link
+        int_marker.header.frame_id = str(self.mesh_link)
         int_marker.pose.position = position
         int_marker.scale = scale
 
@@ -297,26 +297,26 @@ class InteractiveMarkerUtils:
 
         control = InteractiveMarkerControl()
         if axis == 0:
-            control.orientation.w = 1
-            control.orientation.x = 1
-            control.orientation.y = 0
-            control.orientation.z = 0
+            control.orientation.w = 1.0
+            control.orientation.x = 1.0
+            control.orientation.y = 0.0
+            control.orientation.z = 0.0
             control.interaction_mode = InteractiveMarkerControl.MOVE_AXIS
             int_marker.controls.append(copy.deepcopy(control))
 
         if axis == 1:
-            control.orientation.w = 1
-            control.orientation.x = 0
-            control.orientation.y = 0
-            control.orientation.z = 1
+            control.orientation.w = 1.0
+            control.orientation.x = 0.0
+            control.orientation.y = 0.0
+            control.orientation.z = 1.0
             control.interaction_mode = InteractiveMarkerControl.MOVE_AXIS
             int_marker.controls.append(copy.deepcopy(control))
 
         if axis == 2:
-             control.orientation.w = 1
-             control.orientation.x = 0
-             control.orientation.y = 1
-             control.orientation.z = 0
+             control.orientation.w = 1.0
+             control.orientation.x = 0.0
+             control.orientation.y = 1.0
+             control.orientation.z = 0.0
              control.interaction_mode = InteractiveMarkerControl.MOVE_AXIS
              int_marker.controls.append(copy.deepcopy(control))
 
@@ -325,4 +325,4 @@ class InteractiveMarkerUtils:
         control.markers.append( self.makePoint(int_marker) )
         int_marker.controls.append(control)
 
-        self.server.insert(int_marker, self.processFeedback)
+        self.server.insert(marker=int_marker, feedback_callback=self.processFeedback)
