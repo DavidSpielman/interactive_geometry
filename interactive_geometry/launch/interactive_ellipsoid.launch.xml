@@ -4,7 +4,7 @@
     <arg name="parent_link" default="world" />
     <arg name="mesh_link" default="mesh_frame" />
     <arg name="num_pts" default="20" />
-    <arg name="rviz_config" default="$(find-pkg-share interactive_geometry)/config/rviz/config.rviz"/>
+    <arg name="rviz_config" default="$(find-pkg-share interactive_geometry)/rviz/config.rviz"/>
 
     <node pkg="rviz2" exec="rviz2" args="-d $(var rviz_config)"/>
 
