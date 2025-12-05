@@ -15,7 +15,7 @@ class MeshExporter:
 
     def mesh_to_stl(self, vertices, faces, filename):
         """
-        Exports a set of vertices and faces as an stl to the given filename using the stl library
+        Exports a set of vertices and faces as stl to the given filename using the stl library
         """
         print("Saving mesh as stl")
         # Create the mesh

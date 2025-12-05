@@ -58,7 +58,7 @@ if __name__ == '__main__':
     # Initialize node, publishers, and interactive marker server
     rclpy.init()
     node = rclpy.create_node('interactive_ellipsoid_node')
-    pub_marker = node.create_publisher(msg_type=Marker, topic='mesh_marker', qos_profile=10)
+    pub_marker = node.create_publisher(msg_type=Marker, topic='mesh_marker', qos_profile=QoSProfile(depth=10))
 
     # Read ROS parameters
     global_vars.a_scale = node.get_parameter_or('~a',
@@ -170,15 +170,7 @@ if __name__ == '__main__':
         # Rebroadcast the tf
         try:
             tf_stamped_lookup_msg = tf_buffer.lookup_transform(parent_link.value, mesh_link.value, node.get_clock().now())
-            trans = tf_stamped_lookup_msg.transform.translation
-            rot = tf_stamped_lookup_msg.transform.rotation
-            tf_stamped_msg = TransformStamped()
-            tf_stamped_msg.header.stamp = node.get_clock().now().to_msg()
-            tf_stamped_msg.header.frame_id = mesh_link.value
-            tf_stamped_msg.child_frame_id = parent_link.value
-            tf_stamped_msg.transform.translation = tf_stamped_lookup_msg.transform.translation
-            tf_stamped_msg.transform.rotation = tf_stamped_lookup_msg.transform.rotation
-            broadcaster.sendTransform(tf_stamped_msg)
+            broadcaster.sendTransform(tf_stamped_lookup_msg)
         except (tf2.LookupException, tf2.ConnectivityException, tf2.ExtrapolationException):
             trans = Vector3()
             trans.x = 0.0
