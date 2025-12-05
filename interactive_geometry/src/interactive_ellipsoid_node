@@ -34,6 +34,7 @@ Note:
 import rclpy
 from rclpy.node import Node
 from rclpy.executors import ExternalShutdownException
+from rclpy.time import Time
 from visualization_msgs.msg import Marker
 from geometry_msgs.msg import Point, Vector3, Quaternion
 from interactive_markers.interactive_marker_server import *
@@ -61,7 +62,7 @@ class InteractiveEllipsoid(Node):
 
         self.menu_handler = MenuHandler()
         self.pub_marker = self.create_publisher(msg_type=Marker, topic='mesh_marker', qos_profile=QoSProfile(depth=10))
-        self._timer = self.create_timer(1, self.update_mesh)
+        self._timer = self.create_timer(1/30, self.update_mesh)
 
         # Read ROS parameters
         global_vars.a_scale = self.get_parameter_or('~a',
@@ -89,7 +90,7 @@ class InteractiveEllipsoid(Node):
                                                                          'mesh_frame'))
 
         # Set Marker server and TF
-        self.server = InteractiveMarkerServer(self, "interactive_geometry")
+        self.server = InteractiveMarkerServer(self, "")
         self.broadcaster = TransformBroadcaster(self)
         self.tf_buffer = Buffer()
         self.listener = TransformListener(self.tf_buffer, self)
@@ -196,11 +197,12 @@ class InteractiveEllipsoid(Node):
             tf_stamped_msg.transform.translation = trans
             tf_stamped_msg.transform.rotation = rot
             self.broadcaster.sendTransform(tf_stamped_msg)
-            # self.get_logger().info('Resetting TF')
+            self.get_logger().info('Resetting TF')
 
         # Add/Update mesh
         marker = Marker()
-        marker = to_triangle_marker_msg(self.gen.vertices, self.gen.faces, self.mesh_link.value, self.get_clock().now().to_msg())
+        marker = to_triangle_marker_msg(self.gen.vertices, self.gen.faces, self.mesh_link.value,
+                                        self.get_clock().now().to_msg())
         marker.header.stamp = self.get_clock().now().to_msg()
 
         # Save mesh if button clicked
@@ -241,6 +243,7 @@ def main():
         pass
     finally:
         rclpy.try_shutdown()
+
 
 if __name__ == '__main__':
     main()
