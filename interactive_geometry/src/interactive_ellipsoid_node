@@ -62,7 +62,6 @@ class InteractiveEllipsoid(Node):
 
         self.menu_handler = MenuHandler()
         self.pub_marker = self.create_publisher(msg_type=Marker, topic='mesh_marker', qos_profile=QoSProfile(depth=10))
-        self._timer = self.create_timer(1/30, self.update_mesh)
 
         # Read ROS parameters
         global_vars.a_scale = self.get_parameter_or('~a',
@@ -90,7 +89,7 @@ class InteractiveEllipsoid(Node):
                                                                          'mesh_frame'))
 
         # Set Marker server and TF
-        self.server = InteractiveMarkerServer(self, "")
+        self.server = InteractiveMarkerServer(self, "basic_controls")
         self.broadcaster = TransformBroadcaster(self)
         self.tf_buffer = Buffer()
         self.listener = TransformListener(self.tf_buffer, self)
@@ -147,57 +146,59 @@ class InteractiveEllipsoid(Node):
         self.gen.generate_ellipsoid()
 
         # Setup for loop
-        trans = Vector3()
-        trans.x = 0.0
-        trans.y = 0.0
-        trans.z = 0.0
+        self.trans = Vector3()
+        self.trans.x = 0.0
+        self.trans.y = 0.0
+        self.trans.z = 0.0
 
-        rot = Quaternion()
-        rot.x = 0.0
-        rot.y = 0.0
-        rot.z = 0.0
-        rot.w = 1.0
+        self.rot = Quaternion()
+        self.rot.x = 0.0
+        self.rot.y = 0.0
+        self.rot.z = 0.0
+        self.rot.w = 1.0
 
         tf_stamped_msg = TransformStamped()
         tf_stamped_msg.header.stamp = self.get_clock().now().to_msg()
         tf_stamped_msg.header.frame_id = self.parent_link.value
         tf_stamped_msg.child_frame_id = self.mesh_link.value
-        tf_stamped_msg.transform.translation = trans
-        tf_stamped_msg.transform.rotation = rot
+        tf_stamped_msg.transform.translation = self.trans
+        tf_stamped_msg.transform.rotation = self.rot
 
         self.broadcaster.sendTransform(tf_stamped_msg)
+
+        self._timer = self.create_timer(1.0, self.update_mesh)
 
     def update_mesh(self):
         # Update the ellipsoid
         self.gen.update_ellipsoid(global_vars.a_scale.value, global_vars.b_scale.value, global_vars.c_scale.value)
 
-        trans = Vector3()
-        rot = Quaternion()
-
         # Rebroadcast the tf
         try:
-            tf_stamped_lookup_msg = self.tf_buffer.lookup_transform(self.parent_link.value, self.mesh_link.value,
-                                                                    rclpy.time.Time(seconds=0.0))
+            tf_stamped_lookup_msg = self.tf_buffer.lookup_transform(target_frame=self.parent_link.value,
+                                                                    source_frame=self.mesh_link.value,
+                                                                    time=rclpy.time.Time())
             # tf_stamped_lookup_msg = self.tf_buffer.lookup_transform(self.parent_link.value, self.mesh_link.value,
             #                                                         self.get_clock().now())
+            self.trans = tf_stamped_lookup_msg.transform.translation
+            self.rot = tf_stamped_lookup_msg.transform.rotation
             self.broadcaster.sendTransform(tf_stamped_lookup_msg)
             self.get_logger().info('Sending TF')
 
         except (tf2.LookupException, tf2.ConnectivityException, tf2.ExtrapolationException):
-            trans.x = 0.0
-            trans.y = 0.0
-            trans.z = 0.0
+            self.trans.x = 0.0
+            self.trans.y = 0.0
+            self.trans.z = 0.0
 
-            rot.x = 0.0
-            rot.y = 0.0
-            rot.z = 0.0
-            rot.w = 1.0
+            self.rot.x = 0.0
+            self.rot.y = 0.0
+            self.rot.z = 0.0
+            self.rot.w = 1.0
             tf_stamped_msg = TransformStamped()
             tf_stamped_msg.header.stamp = self.get_clock().now().to_msg()
             tf_stamped_msg.header.frame_id = self.mesh_link.value
             tf_stamped_msg.child_frame_id = self.parent_link.value
-            tf_stamped_msg.transform.translation = trans
-            tf_stamped_msg.transform.rotation = rot
+            tf_stamped_msg.transform.translation = self.trans
+            tf_stamped_msg.transform.rotation = self.rot
             self.broadcaster.sendTransform(tf_stamped_msg)
             self.get_logger().info('Resetting TF')
 
@@ -210,10 +211,10 @@ class InteractiveEllipsoid(Node):
         # Save mesh if button clicked
         if self.util.save_file:
             # Generate the transform matrix
-            transformation_matrix = quaternion_matrix(rot)
-            transformation_matrix[3, 0] = trans.x
-            transformation_matrix[3, 1] = trans.y
-            transformation_matrix[3, 2] = trans.z
+            transformation_matrix = quaternion_matrix(self.rot)
+            transformation_matrix[3, 0] = self.trans.x
+            transformation_matrix[3, 1] = self.trans.y
+            transformation_matrix[3, 2] = self.trans.z
 
             # Add a column of ones to the vertices - this makes the
             # dimensions match, and ensures the translation applies.
