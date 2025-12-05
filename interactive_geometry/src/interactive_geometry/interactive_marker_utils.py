@@ -36,9 +36,9 @@ from rclpy.time import Time
 from interactive_markers.interactive_marker_server import *
 from interactive_markers.menu_handler import *
 from visualization_msgs.msg import *
-from geometry_msgs.msg import Point
+from geometry_msgs.msg import Point, Quaternion, Vector3
 from geometry_msgs.msg import Pose
-from tf2_ros import TransformBroadcaster
+from tf2_ros import TransformBroadcaster, TransformStamped
 
 # Import pure Python modules
 from random import random
@@ -76,6 +76,14 @@ class InteractiveMarkerUtils:
     def menuCallback2(self, feedback):
         print("Doing something else")
 
+    def normalizeQuaternion(self, quaternion_msg):
+        norm = quaternion_msg.x ** 2 + quaternion_msg.y ** 2 + quaternion_msg.z ** 2 + quaternion_msg.w ** 2
+        s = norm ** (-0.5)
+        quaternion_msg.x *= s
+        quaternion_msg.y *= s
+        quaternion_msg.z *= s
+        quaternion_msg.w *= s
+
     # Gets called whenever the user interacts with a marker
     def processFeedback(self, feedback):
         """Gets called whenever the user interacts with a marker. Also updates the global_vars to scale geometry
@@ -93,11 +101,11 @@ class InteractiveMarkerUtils:
             mp += " in frame " + feedback.header.frame_id
 
         if feedback.event_type == InteractiveMarkerFeedback.BUTTON_CLICK:
-            self.node.get_logger.info(s + ": button click" + mp + ".")
+            self.node.get_logger().info(s + ": button click" + mp + ".")
         elif feedback.event_type == InteractiveMarkerFeedback.MENU_SELECT:
-            self.node.get_logger.info(s + ": menu item " + str(feedback.menu_entry_id) + " clicked" + mp + ".")
+            self.node.get_logger().info(s + ": menu item " + str(feedback.menu_entry_id) + " clicked" + mp + ".")
         elif feedback.event_type == InteractiveMarkerFeedback.POSE_UPDATE:
-            self.node.get_logger.info(s + ": pose changed")
+            self.node.get_logger().info(s + ": pose changed")
             if feedback.marker_name == 'moving_a':
                 # Update the scale of the ellipse
                 global_vars.a_scale = feedback.pose.position.x
@@ -146,16 +154,35 @@ class InteractiveMarkerUtils:
             else:
                 # This is the 6 DOF marker that moves the whole mesh
                 # Move mesh_frame to be in the center of the marker
-                trans = feedback.pose.position
+                # trans = feedback.pose.position
+                trans = Vector3()
+                trans.x = feedback.pose.position.x
+                trans.y = feedback.pose.position.y
+                trans.z = feedback.pose.position.z
+                # rot = Quaternion()
+                # rot.x = feedback.pose.orientation.x
+                # rot.y = feedback.pose.orientation.y
+                # rot.z = feedback.pose.orientation.z
+                # rot.w = feedback.pose.orientation.w
+
                 rot = feedback.pose.orientation
-                self.br.sendTransform((trans.x, trans.y, trans.z), (-rot.x, -rot.y, -rot.z, -rot.w), rclpy.time.Time(),
-                                      self.mesh_link, self.parent_link)
+                tf_stamped_msg = TransformStamped()
+                tf_stamped_msg.header.frame_id = self.mesh_link
+                tf_stamped_msg.header.stamp = self.node.get_clock().now().to_msg()
+                tf_stamped_msg.child_frame_id = self.parent_link
+                tf_stamped_msg.transform.translation = trans
+                tf_stamped_msg.transform.rotation.x = -rot.x
+                tf_stamped_msg.transform.rotation.x = -rot.y
+                tf_stamped_msg.transform.rotation.x = -rot.z
+                tf_stamped_msg.transform.rotation.x = -rot.w
+
+                self.br.sendTransform(tf_stamped_msg)
 
 
         elif feedback.event_type == InteractiveMarkerFeedback.MOUSE_DOWN:
-            self.node.get_logger.info(s + ": mouse down" + mp + ".")
+            self.node.get_logger().info(s + ": mouse down" + mp + ".")
         elif feedback.event_type == InteractiveMarkerFeedback.MOUSE_UP:
-            self.node.get_logger.info(s + ": mouse up" + mp + ".")
+            self.node.get_logger().info(s + ": mouse up" + mp + ".")
 
         self.server.applyChanges()
 
@@ -210,7 +237,7 @@ class InteractiveMarkerUtils:
         int_marker.scale = 1.0
 
         int_marker.name = "simple_6dof"
-        int_marker.description = ""
+        int_marker.description = "Simple 6-DOF Control"
 
         # insert a box control that makes it draggable
         self.makeBoxControl(int_marker)
@@ -226,6 +253,10 @@ class InteractiveMarkerUtils:
                 InteractiveMarkerControl.ROTATE_3D: "ROTATE_3D",
                 InteractiveMarkerControl.MOVE_ROTATE_3D: "MOVE_ROTATE_3D"}
             int_marker.name += "_" + control_modes_dict[interaction_mode]
+            int_marker.description = '3D Control'
+            if show_6dof:
+                int_marker.description += ' + 6-DOF controls'
+            int_marker.description += '\n' + control_modes_dict[interaction_mode]
 
         # Add the arrows and rotation ribbons to make it movable that way
         if show_6dof:
@@ -234,6 +265,7 @@ class InteractiveMarkerUtils:
             control.orientation.x = 1.0
             control.orientation.y = 0.0
             control.orientation.z = 0.0
+            self.normalizeQuaternion(control.orientation)
             control.name = "rotate_x"
             control.interaction_mode = InteractiveMarkerControl.ROTATE_AXIS
             if fixed:
@@ -245,6 +277,7 @@ class InteractiveMarkerUtils:
             control.orientation.x = 1.0
             control.orientation.y = 0.0
             control.orientation.z = 0.0
+            self.normalizeQuaternion(control.orientation)
             control.name = "move_x"
             control.interaction_mode = InteractiveMarkerControl.MOVE_AXIS
             if fixed:
@@ -256,6 +289,7 @@ class InteractiveMarkerUtils:
             control.orientation.x = 0.0
             control.orientation.y = 1.0
             control.orientation.z = 0.0
+            self.normalizeQuaternion(control.orientation)
             control.name = "rotate_z"
             control.interaction_mode = InteractiveMarkerControl.ROTATE_AXIS
             if fixed:
@@ -267,6 +301,7 @@ class InteractiveMarkerUtils:
             control.orientation.x = 0.0
             control.orientation.y = 1.0
             control.orientation.z = 0.0
+            self.normalizeQuaternion(control.orientation)
             control.name = "move_z"
             control.interaction_mode = InteractiveMarkerControl.MOVE_AXIS
             if fixed:
@@ -278,6 +313,7 @@ class InteractiveMarkerUtils:
             control.orientation.x = 0.0
             control.orientation.y = 0.0
             control.orientation.z = 1.0
+            self.normalizeQuaternion(control.orientation)
             control.name = "rotate_y"
             control.interaction_mode = InteractiveMarkerControl.ROTATE_AXIS
             if fixed:
@@ -289,13 +325,14 @@ class InteractiveMarkerUtils:
             control.orientation.x = 0.0
             control.orientation.y = 0.0
             control.orientation.z = 1.0
+            self.normalizeQuaternion(control.orientation)
             control.name = "move_y"
             control.interaction_mode = InteractiveMarkerControl.MOVE_AXIS
             if fixed:
                 control.orientation_mode = InteractiveMarkerControl.FIXED
             int_marker.controls.append(control)
 
-        self.server.insert(marker=int_marker, feedback_callback=self.processFeedback)
+        self.server.insert(int_marker, feedback_callback=self.processFeedback)
         self.menu_handler.apply(self.server, int_marker.name)
 
     def makeMovingMarker(self, position, name, axis, scale=1.0):
@@ -318,6 +355,7 @@ class InteractiveMarkerUtils:
             control.orientation.x = 1.0
             control.orientation.y = 0.0
             control.orientation.z = 0.0
+            self.normalizeQuaternion(control.orientation)
             control.interaction_mode = InteractiveMarkerControl.MOVE_AXIS
             int_marker.controls.append(copy.deepcopy(control))
 
@@ -326,6 +364,7 @@ class InteractiveMarkerUtils:
             control.orientation.x = 0.0
             control.orientation.y = 0.0
             control.orientation.z = 1.0
+            self.normalizeQuaternion(control.orientation)
             control.interaction_mode = InteractiveMarkerControl.MOVE_AXIS
             int_marker.controls.append(copy.deepcopy(control))
 
@@ -334,6 +373,7 @@ class InteractiveMarkerUtils:
             control.orientation.x = 0.0
             control.orientation.y = 1.0
             control.orientation.z = 0.0
+            self.normalizeQuaternion(control.orientation)
             control.interaction_mode = InteractiveMarkerControl.MOVE_AXIS
             int_marker.controls.append(copy.deepcopy(control))
 
@@ -342,4 +382,4 @@ class InteractiveMarkerUtils:
         control.markers.append(self.makePoint(int_marker))
         int_marker.controls.append(control)
 
-        self.server.insert(marker=int_marker, feedback_callback=self.processFeedback)
+        self.server.insert(int_marker, feedback_callback=self.processFeedback)
