@@ -176,8 +176,8 @@ class InteractiveMarkerUtils:
                 tf_stamped_msg.transform.rotation.x = -rot.z
                 tf_stamped_msg.transform.rotation.x = -rot.w
 
+                #TODO: Figure out why this transform isn't being sent properly
                 self.br.sendTransform(tf_stamped_msg)
-
 
         elif feedback.event_type == InteractiveMarkerFeedback.MOUSE_DOWN:
             self.node.get_logger().info(s + ": mouse down" + mp + ".")
