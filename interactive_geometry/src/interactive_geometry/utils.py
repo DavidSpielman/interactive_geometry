@@ -34,7 +34,7 @@ def to_shape_msgs_mesh(vertices, faces):
 
     return mesh_msg
 
-def to_triangle_marker_msg(vertices, faces, frame, seq, time):
+def to_triangle_marker_msg(vertices, faces, frame, time):
     """
     Converts a set of vertices and faces to a ROS visualization_msgs triangle Marker message
     """
@@ -65,25 +65,25 @@ def to_triangle_marker_msg(vertices, faces, frame, seq, time):
 
         #Fill header
         marker.header.frame_id = frame
-        marker.header.seq = seq
+        marker.header.stamp = time
         marker.ns = "interactive_geometry"
         marker.id = 0
         marker.type = Marker.TRIANGLE_LIST
-        marker.action = Marker.ADD;
-        marker.pose.position.x = 0;
-        marker.pose.position.y = 0;
-        marker.pose.position.z = 0;
-        marker.pose.orientation.x = 0.0;
-        marker.pose.orientation.y = 0.0;
-        marker.pose.orientation.z = 0.0;
-        marker.pose.orientation.w = 1.0;
-        marker.scale.x = 1;
-        marker.scale.y = 1;
-        marker.scale.z = 1;
-        marker.color.a = 0.8;
-        marker.color.r = 0.0;
-        marker.color.g = 0.25;
-        marker.color.b = 0.75;
+        marker.action = Marker.ADD
+        marker.pose.position.x = 0.0
+        marker.pose.position.y = 0.0
+        marker.pose.position.z = 0.0
+        marker.pose.orientation.x = 0.0
+        marker.pose.orientation.y = 0.0
+        marker.pose.orientation.z = 0.0
+        marker.pose.orientation.w = 1.0
+        marker.scale.x = 1.0
+        marker.scale.y = 1.0
+        marker.scale.z = 1.0
+        marker.color.a = 0.8
+        marker.color.r = 0.0
+        marker.color.g = 0.25
+        marker.color.b = 0.75
 #        marker.lifetime = rospy.Duration(0)
 #        marker.lifetime = rospy.Time.now()
         marker.frame_locked = True

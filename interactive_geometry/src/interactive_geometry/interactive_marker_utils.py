@@ -32,6 +32,7 @@ TODO: Replace all of this with my own code that works a little better for this p
 
 # Import ROS modules
 import rclpy
+from rclpy.time import Time
 from interactive_markers.interactive_marker_server import *
 from interactive_markers.menu_handler import *
 from visualization_msgs.msg import *
@@ -102,28 +103,44 @@ class InteractiveMarkerUtils:
                 global_vars.a_scale = feedback.pose.position.x
                 # Now update the mirrored marker
                 pose = copy.deepcopy(feedback.pose)
-                pose.position = Point(-1 * global_vars.a_scale, 0, 0)
+                position = Point()
+                position.x = -1 * global_vars.a_scale
+                position.y = 0.0
+                position.z = 0.0
+                pose.position = position
                 self.server.setPose('moving_a_neg', pose)
                 self.server.applyChanges()
             elif feedback.marker_name == 'moving_b':
                 global_vars.b_scale = feedback.pose.position.y
-                # b is one sided, so there is no other marker to update
+                # b is one-sided, so there is no other marker to update
             elif feedback.marker_name == 'moving_c':
                 global_vars.c_scale = feedback.pose.position.z
                 pose = copy.deepcopy(feedback.pose)
-                pose.position = Point(0, 0, -1 * global_vars.c_scale)
+                position = Point()
+                position.x = 0.0
+                position.y = 0.0
+                position.z = -1 * global_vars.c_scale
+                pose.position = position
                 self.server.setPose('moving_c_neg', pose)
                 self.server.applyChanges()
             elif feedback.marker_name == 'moving_a_neg':
                 global_vars.a_scale = -1 * feedback.pose.position.x
                 pose = copy.deepcopy(feedback.pose)
-                pose.position = Point(global_vars.a_scale, 0, 0)
+                position = Point()
+                position.x = global_vars.a_scale
+                position.y = 0.0
+                position.z = 0.0
+                pose.position = position
                 self.server.setPose('moving_a', pose)
                 self.server.applyChanges()
             elif feedback.marker_name == 'moving_c_neg':
                 global_vars.c_scale = -1 * feedback.pose.position.z
                 pose = copy.deepcopy(feedback.pose)
-                pose.position = Point(0, 0, global_vars.c_scale)
+                position = Point()
+                position.x = 0.0
+                position.y = 0.0
+                position.z = global_vars.c_scale
+                pose.position = position
                 self.server.setPose('moving_c', pose)
                 self.server.applyChanges()
             else:
@@ -131,7 +148,7 @@ class InteractiveMarkerUtils:
                 # Move mesh_frame to be in the center of the marker
                 trans = feedback.pose.position
                 rot = feedback.pose.orientation
-                self.br.sendTransform((trans.x, trans.y, trans.z), (-rot.x, -rot.y, -rot.z, -rot.w), rospy.Time.now(),
+                self.br.sendTransform((trans.x, trans.y, trans.z), (-rot.x, -rot.y, -rot.z, -rot.w), rclpy.time.Time(),
                                       self.mesh_link, self.parent_link)
 
 

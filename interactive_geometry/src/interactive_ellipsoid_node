@@ -32,6 +32,8 @@ Note:
 
 # Import ROS modules
 import rclpy
+from rclpy.node import Node
+from rclpy.executors import ExternalShutdownException
 from visualization_msgs.msg import Marker
 from geometry_msgs.msg import Point, Vector3, Quaternion
 from interactive_markers.interactive_marker_server import *
@@ -52,153 +54,157 @@ from interactive_geometry.utils import *
 from interactive_geometry.interactive_marker_utils import InteractiveMarkerUtils
 import interactive_geometry.global_vars as global_vars
 
-menu_handler = MenuHandler()
 
-if __name__ == '__main__':
-    # Initialize node, publishers, and interactive marker server
-    rclpy.init()
-    node = rclpy.create_node('interactive_ellipsoid_node')
-    pub_marker = node.create_publisher(msg_type=Marker, topic='mesh_marker', qos_profile=QoSProfile(depth=10))
+class InteractiveEllipsoid(Node):
+    def __init__(self, **kwargs):
+        super().__init__('interactive_ellipsoid_node', **kwargs)
 
-    # Read ROS parameters
-    global_vars.a_scale = node.get_parameter_or('~a',
-                                                rclpy.parameter.Parameter('', rclpy.parameter.Parameter.Type.DOUBLE,
-                                                                          1.0))
-    global_vars.b_scale = node.get_parameter_or('~b',
-                                                rclpy.parameter.Parameter('', rclpy.parameter.Parameter.Type.DOUBLE,
-                                                                          1.0))
-    global_vars.c_scale = node.get_parameter_or('~c',
-                                                rclpy.parameter.Parameter('', rclpy.parameter.Parameter.Type.DOUBLE,
-                                                                          1.0))
-    package_share_directory = get_package_share_directory('interactive_geometry')
-    filename = node.get_parameter_or('~filename', rclpy.parameter.Parameter('', rclpy.parameter.Parameter.Type.STRING,
-                                                                            package_share_directory + '/output.stl'))
-    num_pts = node.get_parameter_or('~num_pts',
-                                    rclpy.parameter.Parameter('', rclpy.parameter.Parameter.Type.INTEGER,
-                                                              20))
+        self.menu_handler = MenuHandler()
+        self.pub_marker = self.create_publisher(msg_type=Marker, topic='mesh_marker', qos_profile=QoSProfile(depth=10))
+        self._timer = self.create_timer(1, self.update_mesh)
 
-    parent_link = node.get_parameter_or('~parent_link',
-                                        rclpy.parameter.Parameter('', rclpy.parameter.Parameter.Type.STRING,
-                                                                  'world'))
-    mesh_link = node.get_parameter_or('~mesh_link',
-                                      rclpy.parameter.Parameter('', rclpy.parameter.Parameter.Type.STRING,
-                                                                'mesh_frame'))
+        # Read ROS parameters
+        global_vars.a_scale = self.get_parameter_or('~a',
+                                                    rclpy.parameter.Parameter('', rclpy.parameter.Parameter.Type.DOUBLE,
+                                                                              1.0))
+        global_vars.b_scale = self.get_parameter_or('~b',
+                                                    rclpy.parameter.Parameter('', rclpy.parameter.Parameter.Type.DOUBLE,
+                                                                              1.0))
+        global_vars.c_scale = self.get_parameter_or('~c',
+                                                    rclpy.parameter.Parameter('', rclpy.parameter.Parameter.Type.DOUBLE,
+                                                                              1.0))
+        package_share_directory = get_package_share_directory('interactive_geometry')
+        self.filename = self.get_parameter_or('~filename',
+                                              rclpy.parameter.Parameter('', rclpy.parameter.Parameter.Type.STRING,
+                                                                        package_share_directory + '/output.stl'))
+        self.num_pts = self.get_parameter_or('~num_pts',
+                                             rclpy.parameter.Parameter('', rclpy.parameter.Parameter.Type.INTEGER,
+                                                                       20))
 
-    # Set Marker server and TF
-    server = InteractiveMarkerServer(node, "basic_controls")
-    broadcaster = TransformBroadcaster(node)
-    tf_buffer = Buffer()
-    listener = TransformListener(tf_buffer, node)
+        self.parent_link = self.get_parameter_or('~parent_link',
+                                                 rclpy.parameter.Parameter('', rclpy.parameter.Parameter.Type.STRING,
+                                                                           'world'))
+        self.mesh_link = self.get_parameter_or('~mesh_link',
+                                               rclpy.parameter.Parameter('', rclpy.parameter.Parameter.Type.STRING,
+                                                                         'mesh_frame'))
 
-    # Set up generation utilities
-    util = InteractiveMarkerUtils(node, server, broadcaster, pub_marker)
-    util.parent_link = parent_link
-    util.mesh_link = mesh_link
-    exporter = MeshExporter()
+        # Set Marker server and TF
+        self.server = InteractiveMarkerServer(self, "interactive_geometry")
+        self.broadcaster = TransformBroadcaster(self)
+        self.tf_buffer = Buffer()
+        self.listener = TransformListener(self.tf_buffer, self)
 
-    # Make central control to move mesh
-    position = Point()
-    position.x = 0.0
-    position.y = 0.0
-    position.z = 0.0
-    util.make6DofMarker(False, InteractiveMarkerControl.MOVE_3D, position, True)
-    server.applyChanges()
+        # Set up generation utilities
+        self.util = InteractiveMarkerUtils(self, self.server, self.broadcaster, self.pub_marker)
+        self.util.parent_link = self.parent_link
+        self.util.mesh_link = self.mesh_link
+        self.exporter = MeshExporter()
 
-    # Make controls to resize mesh (positive direction)
-    position = Point()
-    position.x = float(global_vars.a_scale.value)
-    position.y = 0.0
-    position.z = 0.0
-    util.makeMovingMarker(position, "a", axis=0)
-    position = Point()
-    position.x = 0.0
-    position.y = float(global_vars.b_scale.value)
-    position.z = 0.0
-    util.makeMovingMarker(position, "b", axis=1)
-    position = Point()
-    position.x = 0.0
-    position.y = 0.0
-    position.z = float(global_vars.c_scale.value)
-    util.makeMovingMarker(position, "c", axis=2)
+        # Make central control to move mesh
+        position = Point()
+        position.x = 0.0
+        position.y = 0.0
+        position.z = 0.0
+        self.util.make6DofMarker(False, InteractiveMarkerControl.MOVE_3D, position, True)
+        self.server.applyChanges()
 
-    # Make controls to resize mesh (negative directon)
-    position = Point()
-    position.x = -1 * float(global_vars.a_scale.value)
-    position.y = 0.0
-    position.z = 0.0
-    util.makeMovingMarker(position, "a_neg", axis=0)
-    position = Point()
-    position.x = 0.0
-    position.y = 0.0
-    position.z = -1 * float(global_vars.c_scale.value)
-    util.makeMovingMarker(position, "c_neg", axis=2)
+        # Make controls to resize mesh (positive direction)
+        position = Point()
+        position.x = float(global_vars.a_scale.value)
+        position.y = 0.0
+        position.z = 0.0
+        self.util.makeMovingMarker(position, "a", axis=0)
+        position = Point()
+        position.x = 0.0
+        position.y = float(global_vars.b_scale.value)
+        position.z = 0.0
+        self.util.makeMovingMarker(position, "b", axis=1)
+        position = Point()
+        position.x = 0.0
+        position.y = 0.0
+        position.z = float(global_vars.c_scale.value)
+        self.util.makeMovingMarker(position, "c", axis=2)
 
-    # 'commit' changes and send to all clients
-    server.applyChanges()
+        # Make controls to resize mesh (negative directon)
+        position = Point()
+        position.x = -1 * float(global_vars.a_scale.value)
+        position.y = 0.0
+        position.z = 0.0
+        self.util.makeMovingMarker(position, "a_neg", axis=0)
+        position = Point()
+        position.x = 0.0
+        position.y = 0.0
+        position.z = -1 * float(global_vars.c_scale.value)
+        self.util.makeMovingMarker(position, "c_neg", axis=2)
 
-    # Generate the initial ellipsoid
-    gen = EllipsoidGenerator(global_vars.a_scale.value, global_vars.b_scale.value, global_vars.c_scale.value, num_pts.value)
-    gen.generate_ellipsoid()
+        # 'commit' changes and send to all clients
+        self.server.applyChanges()
 
-    # Setup for loop
-    trans = Vector3()
-    trans.x = 0.0
-    trans.y = 0.0
-    trans.z = 0.0
+        # Generate the initial ellipsoid
+        self.gen = EllipsoidGenerator(global_vars.a_scale.value, global_vars.b_scale.value, global_vars.c_scale.value,
+                                      self.num_pts.value)
+        self.gen.generate_ellipsoid()
 
-    rot = Quaternion()
-    rot.x = 0.0
-    rot.y = 0.0
-    rot.z = 0.0
-    rot.w = 1.0
+        # Setup for loop
+        trans = Vector3()
+        trans.x = 0.0
+        trans.y = 0.0
+        trans.z = 0.0
 
-    tf_stamped_msg = TransformStamped()
-    tf_stamped_msg.header.stamp = node.get_clock().now().to_msg()
-    tf_stamped_msg.header.frame_id = parent_link.value
-    tf_stamped_msg.child_frame_id = mesh_link.value
-    tf_stamped_msg.transform.translation = trans
-    tf_stamped_msg.transform.rotation = rot
+        rot = Quaternion()
+        rot.x = 0.0
+        rot.y = 0.0
+        rot.z = 0.0
+        rot.w = 1.0
 
-    broadcaster.sendTransform(tf_stamped_msg)
-    rate = node.create_rate(30)  # 30hz
-    seq = 0
-    while rclpy.ok():
+        tf_stamped_msg = TransformStamped()
+        tf_stamped_msg.header.stamp = self.get_clock().now().to_msg()
+        tf_stamped_msg.header.frame_id = self.parent_link.value
+        tf_stamped_msg.child_frame_id = self.mesh_link.value
+        tf_stamped_msg.transform.translation = trans
+        tf_stamped_msg.transform.rotation = rot
 
+        self.broadcaster.sendTransform(tf_stamped_msg)
+
+    def update_mesh(self):
         # Update the ellipsoid
-        gen.update_ellipsoid(global_vars.a_scale.value, global_vars.b_scale.value, global_vars.c_scale.value)
+        self.gen.update_ellipsoid(global_vars.a_scale.value, global_vars.b_scale.value, global_vars.c_scale.value)
+
+        trans = Vector3()
+        rot = Quaternion()
 
         # Rebroadcast the tf
         try:
-            tf_stamped_lookup_msg = tf_buffer.lookup_transform(parent_link.value, mesh_link.value, node.get_clock().now())
-            broadcaster.sendTransform(tf_stamped_lookup_msg)
+            tf_stamped_lookup_msg = self.tf_buffer.lookup_transform(self.parent_link.value, self.mesh_link.value,
+                                                                    self.get_clock().now())
+            self.broadcaster.sendTransform(tf_stamped_lookup_msg)
+            self.get_logger().info('Sending TF')
+
         except (tf2.LookupException, tf2.ConnectivityException, tf2.ExtrapolationException):
-            trans = Vector3()
             trans.x = 0.0
             trans.y = 0.0
             trans.z = 0.0
 
-            rot = Quaternion()
             rot.x = 0.0
             rot.y = 0.0
             rot.z = 0.0
             rot.w = 1.0
             tf_stamped_msg = TransformStamped()
-            tf_stamped_msg.header.stamp = node.get_clock().now().to_msg()
-            tf_stamped_msg.header.frame_id = mesh_link.value
-            tf_stamped_msg.child_frame_id = parent_link.value
+            tf_stamped_msg.header.stamp = self.get_clock().now().to_msg()
+            tf_stamped_msg.header.frame_id = self.mesh_link.value
+            tf_stamped_msg.child_frame_id = self.parent_link.value
             tf_stamped_msg.transform.translation = trans
             tf_stamped_msg.transform.rotation = rot
-            broadcaster.sendTransform(tf_stamped_msg)
-            print("Resetting TF")
-            continue
+            self.broadcaster.sendTransform(tf_stamped_msg)
+            # self.get_logger().info('Resetting TF')
 
         # Add/Update mesh
         marker = Marker()
-        marker = to_triangle_marker_msg(gen.vertices, gen.faces, mesh_link.value, seq, node.get_clock().now())
-        marker.header.stamp = node.get_clock().now()
+        marker = to_triangle_marker_msg(self.gen.vertices, self.gen.faces, self.mesh_link.value, self.get_clock().now().to_msg())
+        marker.header.stamp = self.get_clock().now().to_msg()
 
         # Save mesh if button clicked
-        if util.save_file:
+        if self.util.save_file:
             # Generate the transform matrix
             transformation_matrix = quaternion_matrix(rot)
             transformation_matrix[3, 0] = trans.x
@@ -207,8 +213,8 @@ if __name__ == '__main__':
 
             # Add a column of ones to the vertices - this makes the
             # dimensions match, and ensures the translation applies.
-            extra_column = np.ones((gen.vertices.shape[0], 1))
-            padded = np.append(gen.vertices, extra_column, 1)
+            extra_column = np.ones((self.gen.vertices.shape[0], 1))
+            padded = np.append(self.gen.vertices, extra_column, 1)
 
             # Ordinarily, we would left-multiply the transform. However, the padded array
             # would need to be transposed, and then the result transposed again. We use the
@@ -216,14 +222,25 @@ if __name__ == '__main__':
             transformed = np.matmul(padded.astype(float), np.transpose(transformation_matrix).astype(float))
 
             # Assign the transformed vertices (without padding) to the mesh
-            gen.vertices = transformed[:, [0, 1, 2]]
+            self.gen.vertices = transformed[:, [0, 1, 2]]
 
             # Save to file
-            exporter.mesh_to_stl(gen.vertices, gen.faces, filename)
-            util.save_file = False
-            print("Exported mesh as " + filename)
-            break;
+            self.exporter.mesh_to_stl(self.gen.vertices, self.gen.faces, self.filename)
+            self.util.save_file = False
+            self.get_logger().info('Exported mesh as ' + self.filename.value)
 
         # Publish the mesh
-        pub_marker.publish(marker)
-        rate.sleep()
+        self.pub_marker.publish(marker)
+
+
+def main():
+    rclpy.init()
+    try:
+        rclpy.spin(InteractiveEllipsoid(), rclpy.executors.MultiThreadedExecutor())
+    except (ExternalShutdownException, KeyboardInterrupt):
+        pass
+    finally:
+        rclpy.try_shutdown()
+
+if __name__ == '__main__':
+    main()
