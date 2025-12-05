@@ -177,7 +177,9 @@ class InteractiveEllipsoid(Node):
         # Rebroadcast the tf
         try:
             tf_stamped_lookup_msg = self.tf_buffer.lookup_transform(self.parent_link.value, self.mesh_link.value,
-                                                                    self.get_clock().now())
+                                                                    rclpy.time.Time(seconds=0.0))
+            # tf_stamped_lookup_msg = self.tf_buffer.lookup_transform(self.parent_link.value, self.mesh_link.value,
+            #                                                         self.get_clock().now())
             self.broadcaster.sendTransform(tf_stamped_lookup_msg)
             self.get_logger().info('Sending TF')
 
