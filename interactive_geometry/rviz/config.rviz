@@ -12,7 +12,6 @@ Panels:
         - /Marker1
         - /Marker1/Namespaces1
         - /InteractiveMarkers1
-        - /InteractiveMarkers1/Status1
       Splitter Ratio: 0.5029411911964417
     Tree Height: 746
   - Class: rviz_common/Selection
@@ -69,8 +68,8 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        world:
-          mesh_frame:
+        mesh_frame:
+          world:
             {}
       Update Interval: 0
       Value: true
@@ -78,7 +77,7 @@ Visualization Manager:
       Enabled: true
       Name: Marker
       Namespaces:
-        {}
+        interactive_geometry: true
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -92,9 +91,9 @@ Visualization Manager:
       Enabled: true
       Interactive Markers Namespace: /basic_controls
       Name: InteractiveMarkers
-      Show Axes: true
-      Show Descriptions: true
-      Show Visual Aids: true
+      Show Axes: false
+      Show Descriptions: false
+      Show Visual Aids: false
       Value: true
   Enabled: true
   Global Options:
@@ -142,7 +141,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 8.001245498657227
+      Distance: 8.45626163482666
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -178,5 +177,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1920
-  X: 1920
-  Y: 0
+  X: 1990
+  Y: 27

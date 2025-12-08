@@ -154,29 +154,19 @@ class InteractiveMarkerUtils:
             else:
                 # This is the 6 DOF marker that moves the whole mesh
                 # Move mesh_frame to be in the center of the marker
-                # trans = feedback.pose.position
                 trans = Vector3()
                 trans.x = feedback.pose.position.x
                 trans.y = feedback.pose.position.y
                 trans.z = feedback.pose.position.z
-                # rot = Quaternion()
-                # rot.x = feedback.pose.orientation.x
-                # rot.y = feedback.pose.orientation.y
-                # rot.z = feedback.pose.orientation.z
-                # rot.w = feedback.pose.orientation.w
-
                 rot = feedback.pose.orientation
-                tf_stamped_msg = TransformStamped()
-                tf_stamped_msg.header.frame_id = self.mesh_link
-                tf_stamped_msg.header.stamp = self.node.get_clock().now().to_msg()
-                tf_stamped_msg.child_frame_id = self.parent_link
-                tf_stamped_msg.transform.translation = trans
-                tf_stamped_msg.transform.rotation.x = -rot.x
-                tf_stamped_msg.transform.rotation.x = -rot.y
-                tf_stamped_msg.transform.rotation.x = -rot.z
-                tf_stamped_msg.transform.rotation.x = -rot.w
 
-                #TODO: Figure out why this transform isn't being sent properly
+                tf_stamped_msg = TransformStamped()
+                tf_stamped_msg.header.stamp = self.node.get_clock().now().to_msg()
+                tf_stamped_msg.header.frame_id = self.parent_link
+                tf_stamped_msg.child_frame_id = self.mesh_link
+                tf_stamped_msg.transform.translation = trans
+                tf_stamped_msg.transform.rotation = rot
+
                 self.br.sendTransform(tf_stamped_msg)
 
         elif feedback.event_type == InteractiveMarkerFeedback.MOUSE_DOWN:
