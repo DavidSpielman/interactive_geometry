@@ -15,6 +15,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+import sys
 
 '''
 TODO:
@@ -158,7 +159,7 @@ class InteractiveEllipsoid(Node):
         self.rot.z = 0.0
         self.rot.w = 1.0
 
-        self._timer = self.create_timer(1/30, self.update_mesh)
+        self._timer = self.create_timer(1 / 30, self.update_mesh)
 
     def update_mesh(self):
         # Update the ellipsoid
@@ -218,19 +219,18 @@ class InteractiveEllipsoid(Node):
             tf_stamped_msg.transform.translation = self.trans
             tf_stamped_msg.transform.rotation = self.rot
             self.broadcaster.sendTransform(tf_stamped_msg)
-            self.get_logger().error(f'{ex}. Resetting TF to previous location')
+            self.get_logger().error(f'{ex} Setting target frame to previous known transform.')
 
         # Publish the mesh
         self.pub_marker.publish(marker)
 
+
 def main():
-    rclpy.init()
-    try:
-        rclpy.spin(InteractiveEllipsoid(), MultiThreadedExecutor())
-    except (ExternalShutdownException, KeyboardInterrupt):
-        pass
-    finally:
-        rclpy.try_shutdown()
+    rclpy.init(args=sys.argv)
+
+    interactive_ellipsoid = InteractiveEllipsoid()
+    rclpy.spin(interactive_ellipsoid)
+    rclpy.shutdown()
 
 
 if __name__ == '__main__':

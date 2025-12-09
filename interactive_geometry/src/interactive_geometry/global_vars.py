@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """ Contains the global variables needed by this package.
 
 I know this is probably bad practice. Shoot me.

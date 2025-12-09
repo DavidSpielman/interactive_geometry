@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 Contains the MeshExporter class for exporting meshes to files
 """

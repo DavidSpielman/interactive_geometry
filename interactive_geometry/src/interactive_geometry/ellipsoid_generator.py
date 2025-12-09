@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """ This module obviously contains the EllipsoidGenerator class.
 
 In the future, maybe this will contain other generators as well. Or maybe I'll keep it to one generator per file. I haven't decided yet.
