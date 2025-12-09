@@ -158,25 +158,18 @@ class InteractiveEllipsoid(Node):
         self.rot.z = 0.0
         self.rot.w = 1.0
 
-        tf_stamped_msg = TransformStamped()
-        tf_stamped_msg.header.stamp = self.get_clock().now().to_msg()
-        tf_stamped_msg.header.frame_id = self.mesh_link.value
-        tf_stamped_msg.child_frame_id = self.parent_link.value
-        tf_stamped_msg.transform.translation = self.trans
-        tf_stamped_msg.transform.rotation = self.rot
-
-        self.broadcaster.sendTransform(tf_stamped_msg)
-
-        self._timer = self.create_timer(1/60, self.update_mesh)
+        self._timer = self.create_timer(1/30, self.update_mesh)
 
     def update_mesh(self):
         # Update the ellipsoid
         self.gen.update_ellipsoid(global_vars.a_scale, global_vars.b_scale, global_vars.c_scale)
 
+        marker = Marker()
+
         # Rebroadcast the tf
         try:
-            tf_stamped_lookup_msg = self.tf_buffer.lookup_transform(target_frame=self.mesh_link.value,
-                                                                    source_frame=self.parent_link.value,
+            tf_stamped_lookup_msg = self.tf_buffer.lookup_transform(target_frame=self.parent_link.value,
+                                                                    source_frame=self.mesh_link.value,
                                                                     time=rclpy.time.Time())
             self.trans = tf_stamped_lookup_msg.transform.translation
             self.rot = tf_stamped_lookup_msg.transform.rotation
@@ -184,16 +177,40 @@ class InteractiveEllipsoid(Node):
             tf_stamped_lookup_msg.header.frame_id = self.parent_link.value
             tf_stamped_lookup_msg.child_frame_id = self.mesh_link.value
             self.broadcaster.sendTransform(tf_stamped_lookup_msg)
-            self.get_logger().info('Sending TF')
 
-        except (tf2.LookupException, tf2.ConnectivityException, tf2.ExtrapolationException):
-            self.trans.x = 0.0
-            self.trans.y = 0.0
-            self.trans.z = 0.0
-            self.rot.x = 0.0
-            self.rot.y = 0.0
-            self.rot.z = 0.0
-            self.rot.w = 1.0
+            # Add/Update mesh
+            marker = to_triangle_marker_msg(self.gen.vertices, self.gen.faces, self.mesh_link.value,
+                                            self.get_clock().now().to_msg())
+            marker.header.stamp = self.get_clock().now().to_msg()
+
+            # Save mesh if button clicked
+            if self.util.save_file:
+                # Generate the transform matrix
+                quaternion = [self.rot.x, self.rot.y, self.rot.z, self.rot.w]
+                transformation_matrix = quaternion_matrix(quaternion)
+                transformation_matrix[3, 0] = self.trans.x
+                transformation_matrix[3, 1] = self.trans.y
+                transformation_matrix[3, 2] = self.trans.z
+
+                # Add a column of ones to the vertices - this makes the
+                # dimensions match, and ensures the translation applies.
+                extra_column = np.ones((self.gen.vertices.shape[0], 1))
+                padded = np.append(self.gen.vertices, extra_column, 1)
+
+                # Ordinarily, we would left-multiply the transform. However, the padded array
+                # would need to be transposed, and then the result transposed again. We use the
+                # identity (AB)T = (B)T(A)T to switch the order around and only transpose the transform
+                transformed = np.matmul(padded.astype(float), np.transpose(transformation_matrix).astype(float))
+
+                # Assign the transformed vertices (without padding) to the mesh
+                self.gen.vertices = transformed[:, [0, 1, 2]]
+
+                # Save to file
+                self.exporter.mesh_to_stl(self.gen.vertices, self.gen.faces, self.filename.value)
+                self.util.save_file = False
+                self.get_logger().info('Exported mesh as ' + self.filename.value)
+
+        except (tf2.LookupException, tf2.ConnectivityException, tf2.ExtrapolationException) as ex:
             tf_stamped_msg = TransformStamped()
             tf_stamped_msg.header.stamp = self.get_clock().now().to_msg()
             tf_stamped_msg.header.frame_id = self.parent_link.value
@@ -201,44 +218,10 @@ class InteractiveEllipsoid(Node):
             tf_stamped_msg.transform.translation = self.trans
             tf_stamped_msg.transform.rotation = self.rot
             self.broadcaster.sendTransform(tf_stamped_msg)
-            self.get_logger().info('Resetting TF')
-
-        # Add/Update mesh
-        marker = Marker()
-        marker = to_triangle_marker_msg(self.gen.vertices, self.gen.faces, self.mesh_link.value,
-                                        self.get_clock().now().to_msg())
-        marker.header.stamp = self.get_clock().now().to_msg()
-
-        # Save mesh if button clicked
-        if self.util.save_file:
-            # Generate the transform matrix
-            quaternion = [self.rot.x, self.rot.y, self.rot.z, self.rot.w]
-            transformation_matrix = quaternion_matrix(quaternion)
-            transformation_matrix[3, 0] = self.trans.x
-            transformation_matrix[3, 1] = self.trans.y
-            transformation_matrix[3, 2] = self.trans.z
-
-            # Add a column of ones to the vertices - this makes the
-            # dimensions match, and ensures the translation applies.
-            extra_column = np.ones((self.gen.vertices.shape[0], 1))
-            padded = np.append(self.gen.vertices, extra_column, 1)
-
-            # Ordinarily, we would left-multiply the transform. However, the padded array
-            # would need to be transposed, and then the result transposed again. We use the
-            # identity (AB)T = (B)T(A)T to switch the order around and only transpose the transform
-            transformed = np.matmul(padded.astype(float), np.transpose(transformation_matrix).astype(float))
-
-            # Assign the transformed vertices (without padding) to the mesh
-            self.gen.vertices = transformed[:, [0, 1, 2]]
-
-            # Save to file
-            self.exporter.mesh_to_stl(self.gen.vertices, self.gen.faces, self.filename.value)
-            self.util.save_file = False
-            self.get_logger().info('Exported mesh as ' + self.filename.value)
+            self.get_logger().error(f'{ex}. Resetting TF to previous location')
 
         # Publish the mesh
         self.pub_marker.publish(marker)
-
 
 def main():
     rclpy.init()

@@ -158,7 +158,12 @@ class InteractiveMarkerUtils:
                 trans.x = feedback.pose.position.x
                 trans.y = feedback.pose.position.y
                 trans.z = feedback.pose.position.z
-                rot = feedback.pose.orientation
+
+                rot = Quaternion()
+                rot.x = feedback.pose.orientation.x * -1
+                rot.y = feedback.pose.orientation.y * -1
+                rot.z = feedback.pose.orientation.z * -1
+                rot.w = feedback.pose.orientation.w * -1
 
                 tf_stamped_msg = TransformStamped()
                 tf_stamped_msg.header.stamp = self.node.get_clock().now().to_msg()
@@ -166,7 +171,6 @@ class InteractiveMarkerUtils:
                 tf_stamped_msg.child_frame_id = self.mesh_link
                 tf_stamped_msg.transform.translation = trans
                 tf_stamped_msg.transform.rotation = rot
-
                 self.br.sendTransform(tf_stamped_msg)
 
         elif feedback.event_type == InteractiveMarkerFeedback.MOUSE_DOWN:
