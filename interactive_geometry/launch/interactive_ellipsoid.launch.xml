@@ -10,9 +10,7 @@
 
     <!-- Launch node with cwd being that of the node, so the files will be saved there instead of $ROS_HOME -->
     <node name="interactive_ellipsoid_node" pkg="interactive_geometry" exec="interactive_ellipsoid_node"  output="screen">
-        <param name="a" value="1.0" />
-        <param name="b" value="1.0" />
-        <param name="c" value="1.0" />
+        <param from="$(find-pkg-share interactive_geometry)/config/ellipsoid_params.yaml" />
         <param name="filename" value="$(var filename)" />
         <param name="num_pts" value="$(var num_pts)" />
         <param name="parent_link" value="$(var parent_link)" />

@@ -48,15 +48,16 @@ import tf2_py as tf2
 from tf_transformations import quaternion_matrix
 
 # Import pure Python modules
+import os
 import numpy as np
 from ament_index_python.packages import get_package_share_directory
+import yaml
 
 # Import package modules
 from interactive_geometry.ellipsoid_generator import *
 from interactive_geometry.mesh_exporter import *
 from interactive_geometry.utils import *
 from interactive_geometry.interactive_marker_utils import InteractiveMarkerUtils
-import interactive_geometry.global_vars as global_vars
 
 A_PARAMETER = 'a'
 B_PARAMETER = 'b'
@@ -83,19 +84,15 @@ class InteractiveEllipsoid(Node):
         self.declare_parameter(PARENT_LINK_PARAMETER, rclpy.Parameter.Type.STRING)
         self.declare_parameter(MESH_LINK_PARAMETER, rclpy.Parameter.Type.STRING)
 
-        global_vars.a_scale = self.get_parameter(A_PARAMETER).value
-        global_vars.b_scale = self.get_parameter(B_PARAMETER).value
-        global_vars.c_scale = self.get_parameter_or(C_PARAMETER).value
-
-        package_share_directory = get_package_share_directory('interactive_geometry')
+        self.a_scale = self.get_parameter(A_PARAMETER).value
+        self.b_scale = self.get_parameter(B_PARAMETER).value
+        self.c_scale = self.get_parameter_or(C_PARAMETER).value
         self.filename = self.get_parameter(FILENAME_PARAMETER).value
-
         self.num_pts = self.get_parameter(NUM_PTS_PARAMETER).get_parameter_value().integer_value
         self.parent_link = self.get_parameter(PARENT_LINK_PARAMETER).value
         self.mesh_link = self.get_parameter(MESH_LINK_PARAMETER).value
 
-        # DEBUG
-        self.get_logger().info(f"SETTING PARENT LINK AS {self.parent_link}")
+        self.get_logger().info(f'Scale is {self.a_scale}, {self.b_scale}, {self.c_scale}')
 
         # Set Marker server and TF
         self.server = InteractiveMarkerServer(self, "basic_controls")
@@ -119,38 +116,38 @@ class InteractiveEllipsoid(Node):
 
         # Make controls to resize mesh (positive direction)
         position = Point()
-        position.x = float(global_vars.a_scale)
+        position.x = self.a_scale
         position.y = 0.0
         position.z = 0.0
         self.util.makeMovingMarker(position, "a", axis=0)
         position = Point()
         position.x = 0.0
-        position.y = float(global_vars.b_scale)
+        position.y = self.b_scale
         position.z = 0.0
         self.util.makeMovingMarker(position, "b", axis=1)
         position = Point()
         position.x = 0.0
         position.y = 0.0
-        position.z = float(global_vars.c_scale)
+        position.z = self.c_scale
         self.util.makeMovingMarker(position, "c", axis=2)
 
         # Make controls to resize mesh (negative directon)
         position = Point()
-        position.x = -1 * float(global_vars.a_scale)
+        position.x = -1 * self.a_scale
         position.y = 0.0
         position.z = 0.0
         self.util.makeMovingMarker(position, "a_neg", axis=0)
         position = Point()
         position.x = 0.0
         position.y = 0.0
-        position.z = -1 * float(global_vars.c_scale)
+        position.z = -1 * self.c_scale
         self.util.makeMovingMarker(position, "c_neg", axis=2)
 
         # 'commit' changes and send to all clients
         self.server.applyChanges()
 
         # Generate the initial ellipsoid
-        self.gen = EllipsoidGenerator(global_vars.a_scale, global_vars.b_scale, global_vars.c_scale,
+        self.gen = EllipsoidGenerator(self.a_scale, self.b_scale, self.c_scale,
                                       self.num_pts)
         self.gen.generate_ellipsoid()
 
@@ -170,7 +167,7 @@ class InteractiveEllipsoid(Node):
 
     def update_mesh(self):
         # Update the ellipsoid
-        self.gen.update_ellipsoid(global_vars.a_scale, global_vars.b_scale, global_vars.c_scale)
+        self.gen.update_ellipsoid(self.a_scale, self.b_scale, self.c_scale)
 
         marker = Marker()
 
@@ -212,6 +209,19 @@ class InteractiveEllipsoid(Node):
 
                 # Assign the transformed vertices (without padding) to the mesh
                 self.gen.vertices = transformed[:, [0, 1, 2]]
+
+                # Save/update ellipsoid parameters to yaml file
+                package_share_directory = get_package_share_directory('interactive_geometry')
+                self.get_logger().info(f'Package share directory is {package_share_directory}')
+                yaml_filepath = package_share_directory + '/config/ellipsoid_params.yaml'
+                with (open(yaml_filepath, 'w') as outfile):
+                    yaml_input = data = {
+                        "/**": {"ros__parameters": {'a': self.a_scale, 'b': self.b_scale, 'c': self.c_scale}}
+                    }
+                    yaml.dump(data, outfile)
+
+                self.get_logger().info(f'Updated ellipsoid are a:{self.a_scale} b:{self.b_scale} c:{self.c_scale}')
+                self.get_logger().info(f'Ellipsoid parameters saved to {yaml_filepath}')
 
                 # Save to file
                 self.exporter.mesh_to_stl(self.gen.vertices, self.gen.faces, self.filename)

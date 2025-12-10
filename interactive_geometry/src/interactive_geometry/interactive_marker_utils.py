@@ -47,10 +47,6 @@ from random import random
 from math import sin
 import copy
 
-# Import package modules
-import interactive_geometry.global_vars as global_vars
-
-
 class InteractiveMarkerUtils:
     node = None
     server = None
@@ -110,46 +106,46 @@ class InteractiveMarkerUtils:
             self.node.get_logger().info(s + ": pose changed")
             if feedback.marker_name == 'moving_a':
                 # Update the scale of the ellipse
-                global_vars.a_scale = feedback.pose.position.x
+                self.node.a_scale = feedback.pose.position.x
                 # Now update the mirrored marker
                 pose = copy.deepcopy(feedback.pose)
                 position = Point()
-                position.x = -1 * global_vars.a_scale
+                position.x = -1 * self.node.a_scale
                 position.y = 0.0
                 position.z = 0.0
                 pose.position = position
                 self.server.setPose('moving_a_neg', pose)
                 self.server.applyChanges()
             elif feedback.marker_name == 'moving_b':
-                global_vars.b_scale = feedback.pose.position.y
+                self.node.b_scale = feedback.pose.position.y
                 # b is one-sided, so there is no other marker to update
             elif feedback.marker_name == 'moving_c':
-                global_vars.c_scale = feedback.pose.position.z
+                self.node.c_scale = feedback.pose.position.z
                 pose = copy.deepcopy(feedback.pose)
                 position = Point()
                 position.x = 0.0
                 position.y = 0.0
-                position.z = -1 * global_vars.c_scale
+                position.z = -1 * self.node.c_scale
                 pose.position = position
                 self.server.setPose('moving_c_neg', pose)
                 self.server.applyChanges()
             elif feedback.marker_name == 'moving_a_neg':
-                global_vars.a_scale = -1 * feedback.pose.position.x
+                self.node.a_scale = -1 * feedback.pose.position.x
                 pose = copy.deepcopy(feedback.pose)
                 position = Point()
-                position.x = global_vars.a_scale
+                position.x = self.node.a_scale
                 position.y = 0.0
                 position.z = 0.0
                 pose.position = position
                 self.server.setPose('moving_a', pose)
                 self.server.applyChanges()
             elif feedback.marker_name == 'moving_c_neg':
-                global_vars.c_scale = -1 * feedback.pose.position.z
+                self.node.c_scale = -1 * feedback.pose.position.z
                 pose = copy.deepcopy(feedback.pose)
                 position = Point()
                 position.x = 0.0
                 position.y = 0.0
-                position.z = global_vars.c_scale
+                position.z = self.node.c_scale
                 pose.position = position
                 self.server.setPose('moving_c', pose)
                 self.server.applyChanges()
