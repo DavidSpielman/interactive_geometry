@@ -14,7 +14,6 @@ find_package(geometry_msgs REQUIRED)
 rosidl_generate_interfaces(
   ${PROJECT_NAME}
   "msg/Ellipsoid.msg"
-  "action/InteractiveEllipsoid.action"
   DEPENDENCIES geometry_msgs)
 
 # Ament package settings
