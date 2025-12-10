@@ -56,6 +56,8 @@ from interactive_geometry.utils import Marker, Point, to_triangle_marker_msg
 A_PARAMETER = 'a'
 B_PARAMETER = 'b'
 C_PARAMETER = 'c'
+TRANSLATION_PARAMETER = 'translation'
+ROTATION_PARAMETER = 'rotation'
 FILENAME_PARAMETER = 'filename'
 NUM_PTS_PARAMETER = 'num_pts'
 PARENT_LINK_PARAMETER = 'parent_link'
@@ -72,6 +74,10 @@ class InteractiveEllipsoid(Node):
         self.declare_parameter(A_PARAMETER, np.nan, ParameterDescriptor(type=ParameterType.PARAMETER_DOUBLE))
         self.declare_parameter(B_PARAMETER, np.nan, ParameterDescriptor(type=ParameterType.PARAMETER_DOUBLE))
         self.declare_parameter(C_PARAMETER, np.nan, ParameterDescriptor(type=ParameterType.PARAMETER_DOUBLE))
+        self.declare_parameter(TRANSLATION_PARAMETER, [np.nan],
+                               ParameterDescriptor(type=ParameterType.PARAMETER_DOUBLE_ARRAY))
+        self.declare_parameter(ROTATION_PARAMETER, [np.nan],
+                               ParameterDescriptor(type=ParameterType.PARAMETER_DOUBLE_ARRAY))
         self.declare_parameter(FILENAME_PARAMETER, rclpy.Parameter.Type.STRING)
         self.declare_parameter(NUM_PTS_PARAMETER, ParameterType.PARAMETER_INTEGER)
         self.declare_parameter(PARENT_LINK_PARAMETER, rclpy.Parameter.Type.STRING)
@@ -80,6 +86,8 @@ class InteractiveEllipsoid(Node):
         self.a_scale = self.get_parameter(A_PARAMETER).value
         self.b_scale = self.get_parameter(B_PARAMETER).value
         self.c_scale = self.get_parameter_or(C_PARAMETER).value
+        trans = self.get_parameter(TRANSLATION_PARAMETER).value
+        rot = self.get_parameter(ROTATION_PARAMETER).value
         self.filename = self.get_parameter(FILENAME_PARAMETER).value
         self.num_pts = self.get_parameter(NUM_PTS_PARAMETER).get_parameter_value().integer_value
         self.parent_link = self.get_parameter(PARENT_LINK_PARAMETER).value
@@ -101,9 +109,9 @@ class InteractiveEllipsoid(Node):
 
         # Make central control to move mesh
         position = Point()
-        position.x = 0.0
-        position.y = 0.0
-        position.z = 0.0
+        position.x = trans[0]
+        position.y = trans[1]
+        position.z = trans[2]
         self.util.make6DofMarker(False, InteractiveMarkerControl.MOVE_3D, position, True)
         self.server.applyChanges()
 
@@ -144,17 +152,17 @@ class InteractiveEllipsoid(Node):
                                       self.num_pts)
         self.gen.generate_ellipsoid()
 
-        # Setup for loop
+        # Setup initial transform between the mesh_link and parent_link
         self.trans = Vector3()
-        self.trans.x = 0.0
-        self.trans.y = 0.0
-        self.trans.z = 0.0
+        self.trans.x = trans[0]
+        self.trans.y = trans[1]
+        self.trans.z = trans[2]
 
         self.rot = Quaternion()
-        self.rot.x = 0.0
-        self.rot.y = 0.0
-        self.rot.z = 0.0
-        self.rot.w = 1.0
+        self.rot.x = rot[0]
+        self.rot.y = rot[1]
+        self.rot.z = rot[2]
+        self.rot.w = rot[3]
 
         self._timer = self.create_timer(1 / 30, self.update_mesh)
 
@@ -208,7 +216,9 @@ class InteractiveEllipsoid(Node):
                 yaml_filepath = package_share_directory + '/config/ellipsoid_params.yaml'
                 with (open(yaml_filepath, 'w') as outfile):
                     yaml_input = data = {
-                        "/**": {"ros__parameters": {'a': self.a_scale, 'b': self.b_scale, 'c': self.c_scale}}
+                        "/**": {"ros__parameters": {'a': self.a_scale, 'b': self.b_scale, 'c': self.c_scale,
+                                                    'translation': [self.trans.x, self.trans.y, self.trans.z],
+                                                    'rotation': [self.rot.x, self.rot.y, self.rot.z, self.rot.w]}}
                     }
                     yaml.dump(data, outfile)
 
