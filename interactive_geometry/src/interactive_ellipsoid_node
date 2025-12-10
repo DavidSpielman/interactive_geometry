@@ -15,7 +15,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-import sys
 
 '''
 TODO:
@@ -32,32 +31,27 @@ Note:
 '''
 
 # Import ROS modules
-import rclpy
-from rclpy.node import Node
-from rcl_interfaces.msg import ParameterDescriptor, ParameterType
-from rclpy.executors import ExternalShutdownException, MultiThreadedExecutor
-from rclpy.callback_groups import ReentrantCallbackGroup
-from rclpy.time import Time
-from visualization_msgs.msg import Marker
-from geometry_msgs.msg import Point, Vector3, Quaternion
-from interactive_markers.interactive_marker_server import *
-from interactive_markers.menu_handler import *
-from visualization_msgs.msg import InteractiveMarkerControl
-from tf2_ros import TransformBroadcaster, TransformListener, Buffer, TransformStamped
-import tf2_py as tf2
-from tf_transformations import quaternion_matrix
-
-# Import pure Python modules
-import os
 import numpy as np
-from ament_index_python.packages import get_package_share_directory
+import rclpy
+import tf2_py as tf2
 import yaml
+# Import pure Python modules
+import sys
+from ament_index_python.packages import get_package_share_directory
+from geometry_msgs.msg import Vector3, Quaternion
+from interactive_markers.interactive_marker_server import InteractiveMarkerServer
+from rcl_interfaces.msg import ParameterDescriptor, ParameterType
+from rclpy.node import Node, QoSProfile
+from rclpy.time import Time
+from tf2_ros import TransformBroadcaster, TransformListener, Buffer, TransformStamped
+from tf_transformations import quaternion_matrix
+from visualization_msgs.msg import InteractiveMarkerControl
 
 # Import package modules
-from interactive_geometry.ellipsoid_generator import *
-from interactive_geometry.mesh_exporter import *
-from interactive_geometry.utils import *
+from interactive_geometry.ellipsoid_generator import EllipsoidGenerator
 from interactive_geometry.interactive_marker_utils import InteractiveMarkerUtils
+from interactive_geometry.mesh_exporter import MeshExporter
+from interactive_geometry.utils import Marker, Point, to_triangle_marker_msg
 
 A_PARAMETER = 'a'
 B_PARAMETER = 'b'
@@ -72,7 +66,6 @@ class InteractiveEllipsoid(Node):
     def __init__(self, **kwargs):
         super().__init__('interactive_ellipsoid_node', **kwargs)
 
-        self.menu_handler = MenuHandler()
         self.pub_marker = self.create_publisher(msg_type=Marker, topic='mesh_marker', qos_profile=QoSProfile(depth=10))
 
         # Read ROS parameters
@@ -212,7 +205,6 @@ class InteractiveEllipsoid(Node):
 
                 # Save/update ellipsoid parameters to yaml file
                 package_share_directory = get_package_share_directory('interactive_geometry')
-                self.get_logger().info(f'Package share directory is {package_share_directory}')
                 yaml_filepath = package_share_directory + '/config/ellipsoid_params.yaml'
                 with (open(yaml_filepath, 'w') as outfile):
                     yaml_input = data = {

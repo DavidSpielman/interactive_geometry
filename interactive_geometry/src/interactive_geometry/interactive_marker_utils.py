@@ -32,20 +32,15 @@ Most of these are not being used. The ones that are are pretty modified.
 TODO: Replace all of this with my own code that works a little better for this purpose and is easier to read. I just used the example for prototyping.
 """
 
-# Import ROS modules
-import rclpy
-from rclpy.time import Time
-from interactive_markers.interactive_marker_server import *
-from interactive_markers.menu_handler import *
-from visualization_msgs.msg import *
-from geometry_msgs.msg import Point, Quaternion, Vector3
-from geometry_msgs.msg import Pose
-from tf2_ros import TransformBroadcaster, TransformStamped
-
 # Import pure Python modules
-from random import random
-from math import sin
 import copy
+
+# Import ROS modules
+from geometry_msgs.msg import Point, Quaternion, Vector3
+from interactive_markers.menu_handler import MenuHandler, InteractiveMarkerFeedback
+from tf2_ros import TransformStamped
+from visualization_msgs.msg import Marker, InteractiveMarker, InteractiveMarkerControl
+
 
 class InteractiveMarkerUtils:
     node = None
