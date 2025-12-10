@@ -59,15 +59,11 @@ class InteractiveMarkerUtils:
         self.server = serv
         self.br = broadcaster
         self.menu_handler.insert("Export mesh as STL", callback=self.menuCallback1)
-        self.menu_handler.insert("Do something else!", callback=self.menuCallback2)
 
     def menuCallback1(self, feedback):
         print("Saving mesh as an STL")
         # Run save Mesh here
         self.save_file = True
-
-    def menuCallback2(self, feedback):
-        print("Doing something else")
 
     def normalizeQuaternion(self, quaternion_msg):
         norm = quaternion_msg.x ** 2 + quaternion_msg.y ** 2 + quaternion_msg.z ** 2 + quaternion_msg.w ** 2
