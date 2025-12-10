@@ -34,6 +34,7 @@ Note:
 # Import ROS modules
 import rclpy
 from rclpy.node import Node
+from rcl_interfaces.msg import ParameterDescriptor, ParameterType
 from rclpy.executors import ExternalShutdownException, MultiThreadedExecutor
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.time import Time
@@ -57,6 +58,14 @@ from interactive_geometry.utils import *
 from interactive_geometry.interactive_marker_utils import InteractiveMarkerUtils
 import interactive_geometry.global_vars as global_vars
 
+A_PARAMETER = 'a'
+B_PARAMETER = 'b'
+C_PARAMETER = 'c'
+FILENAME_PARAMETER = 'filename'
+NUM_PTS_PARAMETER = 'num_pts'
+PARENT_LINK_PARAMETER = 'parent_link'
+MESH_LINK_PARAMETER = 'mesh_link'
+
 
 class InteractiveEllipsoid(Node):
     def __init__(self, **kwargs):
@@ -66,29 +75,27 @@ class InteractiveEllipsoid(Node):
         self.pub_marker = self.create_publisher(msg_type=Marker, topic='mesh_marker', qos_profile=QoSProfile(depth=10))
 
         # Read ROS parameters
-        global_vars.a_scale = self.get_parameter_or('~a',
-                                                    rclpy.parameter.Parameter('', rclpy.parameter.Parameter.Type.DOUBLE,
-                                                                              1.0)).value
-        global_vars.b_scale = self.get_parameter_or('~b',
-                                                    rclpy.parameter.Parameter('', rclpy.parameter.Parameter.Type.DOUBLE,
-                                                                              1.0)).value
-        global_vars.c_scale = self.get_parameter_or('~c',
-                                                    rclpy.parameter.Parameter('', rclpy.parameter.Parameter.Type.DOUBLE,
-                                                                              1.0)).value
-        package_share_directory = get_package_share_directory('interactive_geometry')
-        self.filename = self.get_parameter_or('~filename',
-                                              rclpy.parameter.Parameter('', rclpy.parameter.Parameter.Type.STRING,
-                                                                        package_share_directory + '/output.stl'))
-        self.num_pts = self.get_parameter_or('~num_pts',
-                                             rclpy.parameter.Parameter('', rclpy.parameter.Parameter.Type.INTEGER,
-                                                                       20))
+        self.declare_parameter(A_PARAMETER, np.nan, ParameterDescriptor(type=ParameterType.PARAMETER_DOUBLE))
+        self.declare_parameter(B_PARAMETER, np.nan, ParameterDescriptor(type=ParameterType.PARAMETER_DOUBLE))
+        self.declare_parameter(C_PARAMETER, np.nan, ParameterDescriptor(type=ParameterType.PARAMETER_DOUBLE))
+        self.declare_parameter(FILENAME_PARAMETER, rclpy.Parameter.Type.STRING)
+        self.declare_parameter(NUM_PTS_PARAMETER, ParameterType.PARAMETER_INTEGER)
+        self.declare_parameter(PARENT_LINK_PARAMETER, rclpy.Parameter.Type.STRING)
+        self.declare_parameter(MESH_LINK_PARAMETER, rclpy.Parameter.Type.STRING)
 
-        self.parent_link = self.get_parameter_or('~parent_link',
-                                                 rclpy.parameter.Parameter('', rclpy.parameter.Parameter.Type.STRING,
-                                                                           'world'))
-        self.mesh_link = self.get_parameter_or('~mesh_link',
-                                               rclpy.parameter.Parameter('', rclpy.parameter.Parameter.Type.STRING,
-                                                                         'mesh_frame'))
+        global_vars.a_scale = self.get_parameter(A_PARAMETER).value
+        global_vars.b_scale = self.get_parameter(B_PARAMETER).value
+        global_vars.c_scale = self.get_parameter_or(C_PARAMETER).value
+
+        package_share_directory = get_package_share_directory('interactive_geometry')
+        self.filename = self.get_parameter(FILENAME_PARAMETER).value
+
+        self.num_pts = self.get_parameter(NUM_PTS_PARAMETER).get_parameter_value().integer_value
+        self.parent_link = self.get_parameter(PARENT_LINK_PARAMETER).value
+        self.mesh_link = self.get_parameter(MESH_LINK_PARAMETER).value
+
+        # DEBUG
+        self.get_logger().info(f"SETTING PARENT LINK AS {self.parent_link}")
 
         # Set Marker server and TF
         self.server = InteractiveMarkerServer(self, "basic_controls")
@@ -98,8 +105,8 @@ class InteractiveEllipsoid(Node):
 
         # Set up generation utilities
         self.util = InteractiveMarkerUtils(self, self.server, self.broadcaster, self.pub_marker)
-        self.util.parent_link = self.parent_link.value
-        self.util.mesh_link = self.mesh_link.value
+        self.util.parent_link = self.parent_link
+        self.util.mesh_link = self.mesh_link
         self.exporter = MeshExporter()
 
         # Make central control to move mesh
@@ -144,7 +151,7 @@ class InteractiveEllipsoid(Node):
 
         # Generate the initial ellipsoid
         self.gen = EllipsoidGenerator(global_vars.a_scale, global_vars.b_scale, global_vars.c_scale,
-                                      self.num_pts.value)
+                                      self.num_pts)
         self.gen.generate_ellipsoid()
 
         # Setup for loop
@@ -169,18 +176,18 @@ class InteractiveEllipsoid(Node):
 
         # Rebroadcast the tf
         try:
-            tf_stamped_lookup_msg = self.tf_buffer.lookup_transform(target_frame=self.parent_link.value,
-                                                                    source_frame=self.mesh_link.value,
+            tf_stamped_lookup_msg = self.tf_buffer.lookup_transform(target_frame=self.parent_link,
+                                                                    source_frame=self.mesh_link,
                                                                     time=rclpy.time.Time())
             self.trans = tf_stamped_lookup_msg.transform.translation
             self.rot = tf_stamped_lookup_msg.transform.rotation
             tf_stamped_lookup_msg.header.stamp = self.get_clock().now().to_msg()
-            tf_stamped_lookup_msg.header.frame_id = self.parent_link.value
-            tf_stamped_lookup_msg.child_frame_id = self.mesh_link.value
+            tf_stamped_lookup_msg.header.frame_id = self.parent_link
+            tf_stamped_lookup_msg.child_frame_id = self.mesh_link
             self.broadcaster.sendTransform(tf_stamped_lookup_msg)
 
             # Add/Update mesh
-            marker = to_triangle_marker_msg(self.gen.vertices, self.gen.faces, self.mesh_link.value,
+            marker = to_triangle_marker_msg(self.gen.vertices, self.gen.faces, self.mesh_link,
                                             self.get_clock().now().to_msg())
             marker.header.stamp = self.get_clock().now().to_msg()
 
@@ -207,15 +214,15 @@ class InteractiveEllipsoid(Node):
                 self.gen.vertices = transformed[:, [0, 1, 2]]
 
                 # Save to file
-                self.exporter.mesh_to_stl(self.gen.vertices, self.gen.faces, self.filename.value)
+                self.exporter.mesh_to_stl(self.gen.vertices, self.gen.faces, self.filename)
                 self.util.save_file = False
-                self.get_logger().info('Exported mesh as ' + self.filename.value)
+                self.get_logger().info('Exported mesh as ' + self.filename)
 
         except (tf2.LookupException, tf2.ConnectivityException, tf2.ExtrapolationException) as ex:
             tf_stamped_msg = TransformStamped()
             tf_stamped_msg.header.stamp = self.get_clock().now().to_msg()
-            tf_stamped_msg.header.frame_id = self.parent_link.value
-            tf_stamped_msg.child_frame_id = self.mesh_link.value
+            tf_stamped_msg.header.frame_id = self.parent_link
+            tf_stamped_msg.child_frame_id = self.mesh_link
             tf_stamped_msg.transform.translation = self.trans
             tf_stamped_msg.transform.rotation = self.rot
             self.broadcaster.sendTransform(tf_stamped_msg)
