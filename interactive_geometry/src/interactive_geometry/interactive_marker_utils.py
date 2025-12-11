@@ -210,13 +210,14 @@ class InteractiveMarkerUtils:
     #####################################################################
     # Marker Creation
 
-    def make6DofMarker(self, fixed, interaction_mode, position, show_6dof=False):
+    def make6DofMarker(self, fixed, interaction_mode, position, orientation, show_6dof=False):
         """
         Makes a marker with a 6 DOF control that is both draggable and has the arrows and rotation ribbon if show_6dof=true
         """
         int_marker = InteractiveMarker()
         int_marker.header.frame_id = str(self.parent_link)
         int_marker.pose.position = position
+        int_marker.pose.orientation = orientation
         int_marker.scale = 1.0
 
         int_marker.name = "simple_6dof"

@@ -93,7 +93,21 @@ class InteractiveEllipsoid(Node):
         self.parent_link = self.get_parameter(PARENT_LINK_PARAMETER).value
         self.mesh_link = self.get_parameter(MESH_LINK_PARAMETER).value
 
-        self.get_logger().info(f'Scale is {self.a_scale}, {self.b_scale}, {self.c_scale}')
+        self.get_logger().info(f'Ellipsoid scaling is {self.a_scale}, {self.b_scale}, {self.c_scale}')
+        self.get_logger().info(f'Initial tf between {self.parent_link} and {self.mesh_link} '
+                               f'is trans: {trans}, rot: {rot}')
+
+        # Setup initial transform between the mesh_link and parent_link
+        self.trans = Vector3()
+        self.trans.x = trans[0]
+        self.trans.y = trans[1]
+        self.trans.z = trans[2]
+
+        self.rot = Quaternion()
+        self.rot.x = rot[0]
+        self.rot.y = rot[1]
+        self.rot.z = rot[2]
+        self.rot.w = rot[3]
 
         # Set Marker server and TF
         self.server = InteractiveMarkerServer(self, "basic_controls")
@@ -109,10 +123,10 @@ class InteractiveEllipsoid(Node):
 
         # Make central control to move mesh
         position = Point()
-        position.x = trans[0]
-        position.y = trans[1]
-        position.z = trans[2]
-        self.util.make6DofMarker(False, InteractiveMarkerControl.MOVE_3D, position, True)
+        position.x = self.trans.x
+        position.y = self.trans.y
+        position.z = self.trans.z
+        self.util.make6DofMarker(False, InteractiveMarkerControl.MOVE_3D, position, self.rot, True)
         self.server.applyChanges()
 
         # Make controls to resize mesh (positive direction)
@@ -151,18 +165,6 @@ class InteractiveEllipsoid(Node):
         self.gen = EllipsoidGenerator(self.a_scale, self.b_scale, self.c_scale,
                                       self.num_pts)
         self.gen.generate_ellipsoid()
-
-        # Setup initial transform between the mesh_link and parent_link
-        self.trans = Vector3()
-        self.trans.x = trans[0]
-        self.trans.y = trans[1]
-        self.trans.z = trans[2]
-
-        self.rot = Quaternion()
-        self.rot.x = rot[0]
-        self.rot.y = rot[1]
-        self.rot.z = rot[2]
-        self.rot.w = rot[3]
 
         self._timer = self.create_timer(1 / 30, self.update_mesh)
 
