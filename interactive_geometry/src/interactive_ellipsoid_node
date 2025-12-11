@@ -93,9 +93,9 @@ class InteractiveEllipsoid(Node):
         self.parent_link = self.get_parameter(PARENT_LINK_PARAMETER).value
         self.mesh_link = self.get_parameter(MESH_LINK_PARAMETER).value
 
-        self.get_logger().info(f'Ellipsoid scaling is {self.a_scale}, {self.b_scale}, {self.c_scale}')
-        self.get_logger().info(f'Initial tf between {self.parent_link} and {self.mesh_link} '
-                               f'is trans: {trans}, rot: {rot}')
+        self.get_logger().info(f'Ellipsoid scaling is a: {self.a_scale}, b: {self.b_scale}, c: {self.c_scale}')
+        self.get_logger().info(f'Initial transform between {self.parent_link} and {self.mesh_link} '
+                               f'is translation: {trans}, rotation: {rot}')
 
         # Setup initial transform between the mesh_link and parent_link
         self.trans = Vector3()
@@ -224,7 +224,8 @@ class InteractiveEllipsoid(Node):
                     }
                     yaml.dump(data, outfile)
 
-                self.get_logger().info(f'Updated ellipsoid are a:{self.a_scale} b:{self.b_scale} c:{self.c_scale}')
+                self.get_logger().info(f'Updated ellipsoid scaling params are '
+                                       f'a:{self.a_scale} b:{self.b_scale} c:{self.c_scale}')
                 self.get_logger().info(f'Ellipsoid parameters saved to {yaml_filepath}')
 
                 # Save to file
