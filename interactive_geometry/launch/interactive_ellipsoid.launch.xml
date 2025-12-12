@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 <launch>
-    <arg name="filename" default="output.stl"/>
+    <arg name="mesh_filename" default="output.stl"/>
+    <arg name="config_filename" default="$(find-pkg-share interactive_geometry)/config/ellipsoid_params.yaml"/>
     <arg name="parent_link" default="world" />
     <arg name="mesh_link" default="mesh_frame" />
     <arg name="num_pts" default="20" />
@@ -10,8 +11,8 @@
 
     <!-- Launch node with cwd being that of the node, so the files will be saved there instead of $ROS_HOME -->
     <node name="interactive_ellipsoid_node" pkg="interactive_geometry" exec="interactive_ellipsoid_node"  output="screen">
-        <param from="$(find-pkg-share interactive_geometry)/config/ellipsoid_params.yaml" />
-        <param name="filename" value="$(var filename)" />
+        <param name="config_filename" value="$(var config_filename)" />
+        <param name="mesh_filename" value="$(var mesh_filename)" />
         <param name="num_pts" value="$(var num_pts)" />
         <param name="parent_link" value="$(var parent_link)" />
         <param name="mesh_link" value="$(var mesh_link)" />

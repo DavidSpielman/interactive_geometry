@@ -53,16 +53,11 @@ from interactive_geometry.interactive_marker_utils import InteractiveMarkerUtils
 from interactive_geometry.mesh_exporter import MeshExporter
 from interactive_geometry.utils import Marker, Point, to_triangle_marker_msg
 
-A_PARAMETER = 'a'
-B_PARAMETER = 'b'
-C_PARAMETER = 'c'
-TRANSLATION_PARAMETER = 'translation'
-ROTATION_PARAMETER = 'rotation'
-FILENAME_PARAMETER = 'filename'
+CONFIG_FILENAME_PARAMETER = 'config_filename'
+MESH_FILENAME_PARAMETER = 'mesh_filename'
 NUM_PTS_PARAMETER = 'num_pts'
 PARENT_LINK_PARAMETER = 'parent_link'
 MESH_LINK_PARAMETER = 'mesh_link'
-
 
 class InteractiveEllipsoid(Node):
     def __init__(self, **kwargs):
@@ -71,27 +66,27 @@ class InteractiveEllipsoid(Node):
         self.pub_marker = self.create_publisher(msg_type=Marker, topic='mesh_marker', qos_profile=QoSProfile(depth=10))
 
         # Read ROS parameters
-        self.declare_parameter(A_PARAMETER, np.nan, ParameterDescriptor(type=ParameterType.PARAMETER_DOUBLE))
-        self.declare_parameter(B_PARAMETER, np.nan, ParameterDescriptor(type=ParameterType.PARAMETER_DOUBLE))
-        self.declare_parameter(C_PARAMETER, np.nan, ParameterDescriptor(type=ParameterType.PARAMETER_DOUBLE))
-        self.declare_parameter(TRANSLATION_PARAMETER, [np.nan],
-                               ParameterDescriptor(type=ParameterType.PARAMETER_DOUBLE_ARRAY))
-        self.declare_parameter(ROTATION_PARAMETER, [np.nan],
-                               ParameterDescriptor(type=ParameterType.PARAMETER_DOUBLE_ARRAY))
-        self.declare_parameter(FILENAME_PARAMETER, rclpy.Parameter.Type.STRING)
+        self.declare_parameter(CONFIG_FILENAME_PARAMETER, rclpy.Parameter.Type.STRING)
+        self.declare_parameter(MESH_FILENAME_PARAMETER, rclpy.Parameter.Type.STRING)
         self.declare_parameter(NUM_PTS_PARAMETER, ParameterType.PARAMETER_INTEGER)
         self.declare_parameter(PARENT_LINK_PARAMETER, rclpy.Parameter.Type.STRING)
         self.declare_parameter(MESH_LINK_PARAMETER, rclpy.Parameter.Type.STRING)
 
-        self.a_scale = self.get_parameter(A_PARAMETER).value
-        self.b_scale = self.get_parameter(B_PARAMETER).value
-        self.c_scale = self.get_parameter_or(C_PARAMETER).value
-        trans = self.get_parameter(TRANSLATION_PARAMETER).value
-        rot = self.get_parameter(ROTATION_PARAMETER).value
-        self.filename = self.get_parameter(FILENAME_PARAMETER).value
+        self.config_filename = self.get_parameter(CONFIG_FILENAME_PARAMETER).value
+        self.mesh_filename = self.get_parameter(MESH_FILENAME_PARAMETER).value
         self.num_pts = self.get_parameter(NUM_PTS_PARAMETER).get_parameter_value().integer_value
         self.parent_link = self.get_parameter(PARENT_LINK_PARAMETER).value
         self.mesh_link = self.get_parameter(MESH_LINK_PARAMETER).value
+
+        # Get ellipsoid parameters from YAML file
+        config = {}
+        with open(self.config_filename, 'r') as file:
+            config = yaml.safe_load(file)
+        self.a_scale = config['ellipsoid_params']['a']
+        self.b_scale = config['ellipsoid_params']['b']
+        self.c_scale = config['ellipsoid_params']['c']
+        trans = config['ellipsoid_params']['translation']
+        rot = config['ellipsoid_params']['rotation']
 
         self.get_logger().info(f'Ellipsoid scaling is a: {self.a_scale}, b: {self.b_scale}, c: {self.c_scale}')
         self.get_logger().info(f'Initial transform between {self.parent_link} and {self.mesh_link} '
@@ -146,7 +141,7 @@ class InteractiveEllipsoid(Node):
         position.z = self.c_scale
         self.util.makeMovingMarker(position, "c", axis=2)
 
-        # Make controls to resize mesh (negative directon)
+        # Make controls to resize mesh (negative direction)
         position = Point()
         position.x = -1 * self.a_scale
         position.y = 0.0
@@ -214,24 +209,21 @@ class InteractiveEllipsoid(Node):
                 self.gen.vertices = transformed[:, [0, 1, 2]]
 
                 # Save/update ellipsoid parameters to yaml file
-                package_share_directory = get_package_share_directory('interactive_geometry')
-                yaml_filepath = package_share_directory + '/config/ellipsoid_params.yaml'
-                with (open(yaml_filepath, 'w') as outfile):
-                    yaml_input = data = {
-                        "/**": {"ros__parameters": {'a': self.a_scale, 'b': self.b_scale, 'c': self.c_scale,
+                with (open(self.config_filename, 'w') as outfile):
+                    yaml_input = data = {"ellipsoid_params": {'a': self.a_scale, 'b': self.b_scale, 'c': self.c_scale,
                                                     'translation': [self.trans.x, self.trans.y, self.trans.z],
-                                                    'rotation': [self.rot.x, self.rot.y, self.rot.z, self.rot.w]}}
-                    }
+                                                    'rotation': [self.rot.x, self.rot.y, self.rot.z, self.rot.w]}
+                                        }
                     yaml.dump(data, outfile)
 
                 self.get_logger().info(f'Updated ellipsoid scaling params are '
                                        f'a:{self.a_scale} b:{self.b_scale} c:{self.c_scale}')
-                self.get_logger().info(f'Ellipsoid parameters saved to {yaml_filepath}')
+                self.get_logger().info(f'Ellipsoid parameters saved to {self.config_filename}')
 
                 # Save to file
-                self.exporter.mesh_to_stl(self.gen.vertices, self.gen.faces, self.filename)
+                self.exporter.mesh_to_stl(self.gen.vertices, self.gen.faces, self.mesh_filename)
                 self.util.save_file = False
-                self.get_logger().info('Exported mesh as ' + self.filename)
+                self.get_logger().info('Exported mesh as ' + self.mesh_filename)
 
         except (tf2.LookupException, tf2.ConnectivityException, tf2.ExtrapolationException) as ex:
             tf_stamped_msg = TransformStamped()
